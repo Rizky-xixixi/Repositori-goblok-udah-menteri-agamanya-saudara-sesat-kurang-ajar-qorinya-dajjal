@@ -1,6 +1,8 @@
 package com.example.ritamesa
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -8,7 +10,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,18 +22,23 @@ class RekapKehadiranSiswa : AppCompatActivity() {
     private lateinit var btnBack: ImageButton
     private lateinit var btnMenu: ImageButton
 
-    // Data dummy
-    private val siswaList = listOf(
-        SiswaRekap(1, "Andi Wijaya", "1234567890", "XII", "RPL"),
-        SiswaRekap(2, "Budi Santoso", "2345678901", "XII", "TKJ"),
-        SiswaRekap(3, "Citra Lestari", "3456789012", "XII", "MM"),
-        SiswaRekap(4, "Dewi Anggraini", "4567890123", "XI", "RPL"),
-        SiswaRekap(5, "Eko Prasetyo", "5678901234", "XI", "TKJ"),
-        SiswaRekap(6, "Fitriani", "6789012345", "XI", "MM"),
-        SiswaRekap(7, "Gunawan", "7890123456", "X", "RPL"),
-        SiswaRekap(8, "Hendra Wijaya", "8901234567", "X", "TKJ"),
-        SiswaRekap(9, "Indah Permata", "9012345678", "X", "MM"),
-        SiswaRekap(10, "Joko Susilo", "0123456789", "XII", "RPL")
+    // Data dummy siswa - menggunakan struktur yang sama dengan DataRekapkehadiranSiswa
+    private val siswaList = mutableListOf(
+        SiswaRekap(1, "Ahmad Rizki", "0012345678", "XII RPL 1"),
+        SiswaRekap(2, "Siti Nurhaliza", "0012345679", "XII RPL 2"),
+        SiswaRekap(3, "Budi Santoso", "0012345680", "XII RPL 1"),
+        SiswaRekap(4, "Dewi Lestari", "0012345681", "XII TKJ 1"),
+        SiswaRekap(5, "Eko Prasetyo", "0012345682", "XII RPL 2"),
+        SiswaRekap(6, "Fitria Ayu", "0012345683", "XII DKV 1"),
+        SiswaRekap(7, "Galih Pratama", "0012345684", "XII RPL 1"),
+        SiswaRekap(8, "Hana Kartika", "0012345685", "XII TKJ 2"),
+        SiswaRekap(9, "Irfan Hakim", "0012345686", "XII RPL 2"),
+        SiswaRekap(10, "Joko Widodo", "0012345687", "XII DKV 2"),
+        SiswaRekap(11, "Kartini Sari", "0012345688", "XI RPL 1"),
+        SiswaRekap(12, "Lestari Wati", "0012345689", "XI TKJ 1"),
+        SiswaRekap(13, "Mulyadi", "0012345690", "XI DKV 1"),
+        SiswaRekap(14, "Nurul Hikmah", "0012345691", "X RPL 1"),
+        SiswaRekap(15, "Oktaviani", "0012345692", "X TKJ 1")
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +48,8 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         initView()
         setupRecyclerView()
         setupActions()
+        setupBottomNavigation()
+        setupSearch()
     }
 
     private fun initView() {
@@ -58,11 +66,82 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         rekapAdapter = RekapSiswaAdapter(
             siswaList,
             onLihatClickListener = { siswa ->
-                // Aksi ketika tombol lihat diklik
-                showDetailDialog(siswa)
+                showPopupDetailSiswa(siswa)
             }
         )
         recyclerView.adapter = rekapAdapter
+    }
+
+    private fun showPopupDetailSiswa(siswa: SiswaRekap) {
+        val inflater = LayoutInflater.from(this)
+        val popupView = inflater.inflate(R.layout.popup_siswa_detail, null)
+
+        // Set data siswa
+        popupView.findViewById<TextView>(R.id.tvPopupNama).text = siswa.nama
+        popupView.findViewById<TextView>(R.id.tvPopupNisn).text = siswa.nisn
+        popupView.findViewById<TextView>(R.id.tvPopupKelas).text = siswa.kelas
+
+        val container = popupView.findViewById<LinearLayout>(R.id.containerKehadiran)
+        setupDataKehadiranSiswa(container, siswa)
+
+        val popupWindow = PopupWindow(
+            popupView,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+
+        // Set background transparan untuk efek blur
+        popupWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popupWindow.elevation = 20f
+        popupWindow.isOutsideTouchable = true
+
+        // Set opacity untuk background popup
+        val popupContainer = popupView.findViewById<View>(R.id.popupContainer)
+        popupContainer.alpha = 0.95f  // Sedikit transparan untuk efek blur
+
+        popupView.findViewById<Button>(R.id.btnTutupPopup).setOnClickListener {
+            popupWindow.dismiss()
+        }
+
+        // Tambahkan background semi-transparan untuk area di luar popup
+        val backgroundView = View(this)
+        backgroundView.setBackgroundColor(Color.parseColor("#80000000")) // Hitam semi-transparan
+        val rootView = window.decorView.rootView as ViewGroup
+        rootView.addView(backgroundView)
+
+        popupWindow.showAtLocation(window.decorView.rootView, android.view.Gravity.CENTER, 0, 0)
+
+        // Hapus background view saat popup ditutup
+        popupWindow.setOnDismissListener {
+            rootView.removeView(backgroundView)
+        }
+    }
+
+    private fun setupDataKehadiranSiswa(container: LinearLayout, siswa: SiswaRekap) {
+        container.removeAllViews()
+
+        siswa.getDataKehadiran().forEach { kehadiran ->
+            val itemView = LayoutInflater.from(this)
+                .inflate(R.layout.item_kehadiran_popup, container, false)
+
+            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.tanggal
+            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = kehadiran.mataPelajaran
+            itemView.findViewById<TextView>(R.id.tvJam).text = kehadiran.jam
+            itemView.findViewById<TextView>(R.id.tvStatus).text = kehadiran.status
+            itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan
+
+            val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
+            when (kehadiran.status.lowercase()) {
+                "hadir" -> tvStatus.setTextColor(Color.parseColor("#4CAF50"))
+                "sakit" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                "izin" -> tvStatus.setTextColor(Color.parseColor("#2196F3"))
+                "alpha" -> tvStatus.setTextColor(Color.parseColor("#F44336"))
+                "terlambat" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
+            }
+
+            container.addView(itemView)
+        }
     }
 
     private fun setupActions() {
@@ -71,205 +150,131 @@ class RekapKehadiranSiswa : AppCompatActivity() {
             finish()
         }
 
-        // BUTTON MENU (More Vert) - DIPERBAIKI
+        // BUTTON MENU (More Vert)
         btnMenu.setOnClickListener {
             showPopupMenu(it)
         }
+    }
 
-        // BUTTON SEARCH
-        findViewById<ImageButton>(R.id.imageButton17).setOnClickListener {
-            performSearch()
-        }
-
+    private fun setupSearch() {
         // SEARCH TEXT LISTENER
         editTextSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                performSearch()
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filterData(s.toString().trim())
             }
+
+            override fun afterTextChanged(s: Editable?) {}
         })
 
-        // BOTTOM NAVIGATION
-        setupBottomNavigation()
+        // BUTTON SEARCH CLEAR
+        findViewById<ImageButton>(R.id.imageButton17).setOnClickListener {
+            editTextSearch.text.clear()
+            editTextSearch.requestFocus()
+            rekapAdapter.filter("")
+            Toast.makeText(this, "Menampilkan semua data siswa", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun filterData(query: String) {
+        rekapAdapter.filter(query)
+
+        if (query.isNotEmpty() && rekapAdapter.itemCount == 0) {
+            Toast.makeText(this, "Tidak ditemukan siswa dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showPopupMenu(view: View) {
-        // Membuat popup menu untuk pilih guru/siswa
-        PopupMenu(this, view).apply {
-            menuInflater.inflate(R.menu.menu_rekap_switch, menu)
+        val popup = PopupMenu(this, view)
+        popup.menuInflater.inflate(R.menu.menu_rekap_switch, popup.menu)
 
-            setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    R.id.menu_guru -> {
-                        // Pindah ke halaman rekap guru
-                        val intent = Intent(this@RekapKehadiranSiswa, RekapKehadiranGuru::class.java)
-                        startActivity(intent)
-                        finish() // Tutup halaman siswa
-                        true
-                    }
-                    R.id.menu_siswa -> {
-                        // Sudah di halaman siswa
-                        Toast.makeText(this@RekapKehadiranSiswa, "Anda sudah di halaman Rekap Siswa", Toast.LENGTH_SHORT).show()
-                        true
-                    }
-                    else -> false
+        popup.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_guru -> {
+                    // Pindah ke halaman rekap guru
+                    val intent = Intent(this, RekapKehadiranGuru::class.java)
+                    startActivity(intent)
+                    finish()
+                    true
                 }
-            }
 
-            show()
+                R.id.menu_siswa -> {
+                    // Sudah di halaman siswa
+                    Toast.makeText(this, "Sudah di halaman Siswa", Toast.LENGTH_SHORT).show()
+                    true
+                }
+
+                else -> false
+            }
         }
-    }
 
-    private fun performSearch() {
-        val query = editTextSearch.text.toString().trim()
-        rekapAdapter.filterData(query, siswaList)
-    }
-
-    private fun showDetailDialog(siswa: SiswaRekap) {
-        AlertDialog.Builder(this)
-            .setTitle("Detail Kehadiran Siswa")
-            .setMessage(
-                """
-                Nama: ${siswa.nama}
-                NISN: ${siswa.nisn}
-                Kelas/Jurusan: ${siswa.getKelasJurusan()}
-                
-                Kehadiran Bulan Ini:
-                • Hadir: 18 hari
-                • Izin: 2 hari
-                • Sakit: 1 hari
-                • Alpa: 0 hari
-                • Terlambat: 1 hari
-                • Pulang: 2 hari
-                
-                
-                Persentase Kehadiran: 85.7%
-                """.trimIndent()
-            )
-            .setPositiveButton("Tutup") { dialog, _ ->
-                dialog.dismiss()
-            }
-
-            .show()
-    }
-
-    private fun showMenuDialog() {
-        val items = arrayOf("Refresh Data", "Ekspor ke Excel", "Filter Berdasarkan Kelas", "Pengaturan")
-
-        AlertDialog.Builder(this)
-            .setTitle("Menu")
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> {
-                        // Refresh
-                        rekapAdapter.updateData(siswaList)
-                        Toast.makeText(this, "Data direfresh", Toast.LENGTH_SHORT).show()
-                    }
-                    1 -> {
-                        // Ekspor ke Excel
-                        Toast.makeText(this, "Mengekspor data ke Excel...", Toast.LENGTH_SHORT).show()
-                    }
-                    2 -> {
-                        // Filter berdasarkan kelas
-                        showFilterDialog()
-                    }
-                    3 -> {
-                        // Pengaturan
-                        Toast.makeText(this, "Membuka pengaturan", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            .setNegativeButton("Batal", null)
-            .show()
-    }
-
-    private fun showFilterDialog() {
-        val kelasList = arrayOf("Semua Kelas", "X", "XI", "XII")
-        val jurusanList = arrayOf("Semua Jurusan", "RPL", "TKJ", "MM", "Mekatronika")
-
-        AlertDialog.Builder(this)
-            .setTitle("Filter Data")
-            .setMessage("Pilih filter yang diinginkan:")
-            .setPositiveButton("Filter Kelas") { dialog, _ ->
-                showSingleChoiceDialog("Pilih Kelas", kelasList) { selected ->
-                    if (selected == 0) {
-                        rekapAdapter.updateData(siswaList)
-                    } else {
-                        val filtered = siswaList.filter { it.kelas == kelasList[selected] }
-                        rekapAdapter.updateData(filtered)
-                    }
-                }
-                dialog.dismiss()
-            }
-            .setNegativeButton("Filter Jurusan") { dialog, _ ->
-                showSingleChoiceDialog("Pilih Jurusan", jurusanList) { selected ->
-                    if (selected == 0) {
-                        rekapAdapter.updateData(siswaList)
-                    } else {
-                        val filtered = siswaList.filter { it.jurusan == jurusanList[selected] }
-                        rekapAdapter.updateData(filtered)
-                    }
-                }
-                dialog.dismiss()
-            }
-            .setNeutralButton("Reset Filter") { dialog, _ ->
-                rekapAdapter.updateData(siswaList)
-                Toast.makeText(this, "Filter direset", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            .show()
-    }
-
-    private fun showSingleChoiceDialog(title: String, items: Array<String>, onItemSelected: (Int) -> Unit) {
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setSingleChoiceItems(items, 0) { dialog, which ->
-                onItemSelected(which)
-                dialog.dismiss()
-            }
-            .setNegativeButton("Batal", null)
-            .show()
+        popup.show()
     }
 
     private fun setupBottomNavigation() {
-        // Home
+        // Home - ke Dashboard
         findViewById<ImageButton>(R.id.imageButton2).setOnClickListener {
-            Toast.makeText(this, "Home", Toast.LENGTH_SHORT).show()
-            // startActivity(Intent(this, MainActivity::class.java))
-            // finish()
+            val intent = Intent(this, Dashboard::class.java)
+            startActivity(intent)
+            finish()
         }
 
-        // Contacts (Active)
+        // Contacts (Active) - ke Data Rekap (halaman ini)
         findViewById<ImageButton>(R.id.imageButton3).setOnClickListener {
-            Toast.makeText(this, "Contacts sudah aktif", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Sudah di halaman Data Rekap", Toast.LENGTH_SHORT).show()
         }
 
-        // Bar Chart
+        // Bar Chart - ke Statistik
         findViewById<ImageButton>(R.id.imageButton5).setOnClickListener {
-            Toast.makeText(this, "Bar Chart", Toast.LENGTH_SHORT).show()
-            // startActivity(Intent(this, StatistikActivity::class.java))
-            // finish()
+            try {
+                val intent = Intent(this, StatistikKehadiran::class.java)
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Halaman belum tersedia", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        // Notifications
+        // Notifications - ke Notifikasi
         findViewById<ImageButton>(R.id.imageButton6).setOnClickListener {
-            Toast.makeText(this, "Notifications", Toast.LENGTH_SHORT).show()
-            // startActivity(Intent(this, NotifikasiActivity::class.java))
-            // finish()
+            try {
+                val intent = Intent(this, NotifikasiSemua::class.java)
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Halaman belum tersedia", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
-    // Data class untuk siswa (jika belum ada di file lain)
+    // Data class untuk siswa
     data class SiswaRekap(
         val id: Int,
         val nama: String,
         val nisn: String,
-        val kelas: String,
-        val jurusan: String
+        val kelas: String
     ) {
-        fun getKelasJurusan(): String = "$kelas $jurusan"
+        // Method untuk mendapatkan data kehadiran (dummy data)
+        fun getDataKehadiran(): List<Kehadiran> {
+            return listOf(
+                Kehadiran("Senin, 7 Januari 2026", "Bahasa Indonesia / $kelas", "07:00", "Hadir", "Hadir tepat waktu"),
+                Kehadiran("Selasa, 8 Januari 2026", "Matematika / $kelas", "08:45", "Hadir", "Hadir tepat waktu"),
+                Kehadiran("Rabu, 9 Januari 2026", "Bahasa Inggris / $kelas", "10:30", "Sakit", "Izin sakit"),
+                Kehadiran("Kamis, 10 Januari 2026", "Pemrograman Dasar / $kelas", "13:15", "Izin", "Izin keluarga"),
+                Kehadiran("Jumat, 11 Januari 2026", "Basis Data / $kelas", "07:00", "Alpha", "Tidak hadir tanpa keterangan")
+            )
+        }
     }
+
+    // Data class untuk kehadiran
+    data class Kehadiran(
+        val tanggal: String,
+        val mataPelajaran: String,
+        val jam: String,
+        val status: String,
+        val keterangan: String
+    )
 
     // Adapter untuk RecyclerView siswa
     class RekapSiswaAdapter(
@@ -285,6 +290,15 @@ class RekapKehadiranSiswa : AppCompatActivity() {
             val tvNisn: TextView = itemView.findViewById(R.id.tvTelepon)
             val tvKelasJurusan: TextView = itemView.findViewById(R.id.tvMataPelajaran)
             val btnLihat: ImageButton = itemView.findViewById(R.id.btnLihat)
+
+            init {
+                btnLihat.setOnClickListener {
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        onLihatClickListener(filteredList[position])
+                    }
+                }
+            }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SiswaViewHolder {
@@ -295,27 +309,23 @@ class RekapKehadiranSiswa : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: SiswaViewHolder, position: Int) {
             val siswa = filteredList[position]
-            holder.tvNomor.text = siswa.id.toString()
+            holder.tvNomor.text = (position + 1).toString()
             holder.tvNama.text = siswa.nama
             holder.tvNisn.text = siswa.nisn
-            holder.tvKelasJurusan.text = "${siswa.kelas} ${siswa.jurusan}"
-
-            holder.btnLihat.setOnClickListener {
-                onLihatClickListener(siswa)
-            }
+            holder.tvKelasJurusan.text = siswa.kelas
         }
 
         override fun getItemCount(): Int = filteredList.size
 
-        fun filterData(query: String, originalList: List<SiswaRekap>) {
+        fun filter(query: String) {
             filteredList = if (query.isEmpty()) {
-                originalList
+                dataList
             } else {
-                originalList.filter {
-                    it.nama.contains(query, ignoreCase = true) ||
-                            it.nisn.contains(query, ignoreCase = true) ||
-                            it.kelas.contains(query, ignoreCase = true) ||
-                            it.jurusan.contains(query, ignoreCase = true)
+                val lowercaseQuery = query.lowercase()
+                dataList.filter { siswa ->
+                    siswa.nama.lowercase().contains(lowercaseQuery) ||
+                            siswa.nisn.lowercase().contains(lowercaseQuery) ||
+                            siswa.kelas.lowercase().contains(lowercaseQuery)
                 }
             }
             notifyDataSetChanged()

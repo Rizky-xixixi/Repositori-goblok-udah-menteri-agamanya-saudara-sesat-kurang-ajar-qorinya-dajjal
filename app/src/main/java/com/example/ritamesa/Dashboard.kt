@@ -5,8 +5,11 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.widget.ImageButton
+import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.components.XAxis
@@ -45,30 +48,34 @@ class Dashboard : AppCompatActivity() {
         setContentView(R.layout.dashboard)
 
         // ===== INISIALISASI VIEW =====
-        tvTanggal = findViewById(R.id.textView9)   // tanggal header
-        tvJam = findViewById(R.id.textView21)      // jam
+        tvTanggal = findViewById(R.id.textView9)
+        tvJam = findViewById(R.id.textView21)
         tvTotalSiswa = findViewById(R.id.textView12)
         tvTotalGuru = findViewById(R.id.textView16)
         tvTotalJurusan = findViewById(R.id.textView17)
         tvTotalKelas = findViewById(R.id.textView18)
-        tvDateCard = findViewById(R.id.textView20) // tanggal di card riwayat
+        tvDateCard = findViewById(R.id.textView20)
 
-        // Inisialisasi statistik kehadiran
         tvHadir = findViewById(R.id.tvTepatWaktuDashboard)
         tvTerlambat = findViewById(R.id.tvTerlambatDashboard)
         tvIzin = findViewById(R.id.tvIzinDashboard)
         tvSakit = findViewById(R.id.tvSakitDashboard)
         tvAlpha = findViewById(R.id.tvAlphaDashboard)
-        tvPulang = findViewById(R.id.tvPulang) // TextView untuk pulang
+        tvPulang = findViewById(R.id.tvPulang)
 
         barChart = findViewById(R.id.barChartBulanan)
 
         updateTanggalJam()
         updateDataStatistik()
 
-        // ===== NAVIGASI =====
+        // ===== PROFILE POPUP MENU 2 ITEM =====
+        findViewById<ImageButton>(R.id.profile).setOnClickListener { view ->
+            showProfileMenu(view)
+        }
+
+        // ===== NAVIGASI LAINNYA =====
         findViewById<ImageButton>(R.id.imageButton2).setOnClickListener {
-            // HOME - sudah di dashboard, tidak perlu navigasi
+            // HOME - sudah di dashboard
         }
 
         findViewById<ImageButton>(R.id.imageButton3).setOnClickListener {
@@ -104,89 +111,120 @@ class Dashboard : AppCompatActivity() {
         }
     }
 
-    // ===== UPDATE DATA STATISTIK DINAMIS =====
+    // ===== PROFILE MENU DENGAN 2 PILIHAN =====
+    private fun showProfileMenu(view: android.view.View) {
+        val popupMenu = PopupMenu(this, view)
+        popupMenu.menuInflater.inflate(R.menu.profile_simple, popupMenu.menu)
+
+        // Custom background untuk menu
+        try {
+            val fieldMPopup = PopupMenu::class.java.getDeclaredField("mPopup")
+            fieldMPopup.isAccessible = true
+            val mPopup = fieldMPopup.get(popupMenu)
+            mPopup.javaClass
+                .getDeclaredMethod("setForceShowIcon", Boolean::class.java)
+                .invoke(mPopup, true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_logout -> {
+                    // Tampilkan konfirmasi logout
+                    showLogoutConfirmation()
+                    true
+                }
+                R.id.menu_cancel -> {
+                    // Batal - tutup menu saja
+                    Toast.makeText(this, "Dibatalkan", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        popupMenu.show()
+    }
+
+    private fun showLogoutConfirmation() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Konfirmasi Logout")
+            .setMessage("Yakin ingin logout dari akun Admin?")
+            .setPositiveButton("Ya, Logout") { _, _ ->
+                performLogout()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun performLogout() {
+        val intent = Intent(this, LoginAwal::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+        Toast.makeText(this, "Logout berhasil", Toast.LENGTH_SHORT).show()
+    }
+
+    // ===== FUNGSI LAINNYA (TETAP SAMA) =====
     private fun updateDataStatistik() {
-        // Data statistik
         val totalSiswa = Random.nextInt(80, 120)
         val totalGuru = Random.nextInt(10, 20)
         val totalJurusan = 5
         val totalKelas = Random.nextInt(8, 15)
 
-        // Data kehadiran hari ini - sesuai dengan 5 kategori dari gambar
         val hadir = Random.nextInt(60, totalSiswa - 20)
         val izin = Random.nextInt(3, 10)
-        val pulang = (hadir * 0.9).toInt() // 90% dari yang hadir
+        val pulang = (hadir * 0.9).toInt()
         val tidakHadir = Random.nextInt(5, 15)
         val sakit = Random.nextInt(2, 8)
 
-        // Terlambat tidak ada dalam gambar, jadi kita masukkan ke kategori lain
-        // atau bisa juga dianggap sebagai bagian dari "Tidak Hadir"
-
-        // Update TextView
         tvTotalSiswa.text = totalSiswa.toString()
         tvTotalGuru.text = totalGuru.toString()
         tvTotalJurusan.text = totalJurusan.toString()
         tvTotalKelas.text = totalKelas.toString()
 
-        // Update statistik kehadiran hari ini - sesuai dengan 5 kategori
         tvHadir.text = hadir.toString()
         tvIzin.text = izin.toString()
         tvPulang.text = pulang.toString()
-        tvAlpha.text = tidakHadir.toString() // Alpha = Tidak Hadir
+        tvAlpha.text = tidakHadir.toString()
         tvSakit.text = sakit.toString()
-
-        // Untuk terlambat, kita set 0 karena tidak ada di gambar
         tvTerlambat.text = "0"
 
-        // Update chart dengan data baru
         setupChartHariIni()
     }
 
-    // ===== SETUP CHART DATA HARI INI =====
     private fun setupChartHariIni() {
-        // Ambil data dari statistik yang sudah ada
         val hadir = tvHadir.text.toString().toIntOrNull() ?: 0
         val izin = tvIzin.text.toString().toIntOrNull() ?: 0
         val pulang = tvPulang.text.toString().toIntOrNull() ?: 0
         val tidakHadir = tvAlpha.text.toString().toIntOrNull() ?: 0
         val sakit = tvSakit.text.toString().toIntOrNull() ?: 0
 
-        // Labels untuk 5 bar sesuai gambar: Hadir, Izin, Pulang, Tidak Hadir, Sakit
         val labels = arrayOf("Hadir", "Izin", "Pulang", "Tidak Hadir", "Sakit")
-
-        // Data untuk 5 bar
         val entries = mutableListOf<BarEntry>()
-        entries.add(BarEntry(0f, hadir.toFloat()))       // Bar 0: Hadir
-        entries.add(BarEntry(1f, izin.toFloat()))        // Bar 1: Izin
-        entries.add(BarEntry(2f, pulang.toFloat()))      // Bar 2: Pulang
-        entries.add(BarEntry(3f, tidakHadir.toFloat()))  // Bar 3: Tidak Hadir
-        entries.add(BarEntry(4f, sakit.toFloat()))       // Bar 4: Sakit
+        entries.add(BarEntry(0f, hadir.toFloat()))
+        entries.add(BarEntry(1f, izin.toFloat()))
+        entries.add(BarEntry(2f, pulang.toFloat()))
+        entries.add(BarEntry(3f, tidakHadir.toFloat()))
+        entries.add(BarEntry(4f, sakit.toFloat()))
 
-        // Warna sesuai gambar:
-        // 1. Hadir - Hijau
-        // 2. Izin - Biru
-        // 3. Pulang - Cyan
-        // 4. Tidak Hadir - Merah
-        // 5. Sakit - Ungu
         val warnaStatus = listOf(
-            Color.parseColor("#4CAF50"),  // Hijau - Hadir
-            Color.parseColor("#FFEB3B"),  // Kuning - Izin
-            Color.parseColor("#1976D2"),  // Biru - Pulang
-            Color.parseColor("#F44336"),  // Merah - Tidak Hadir
-            Color.parseColor("#FF9800")   // Oranye - Sakit
+            Color.parseColor("#4CAF50"),
+            Color.parseColor("#A1B324"),
+            Color.parseColor("#1976D2"),
+            Color.parseColor("#B1170F"),
+            Color.parseColor("#741781")
         )
 
-
-        // Setup dataset dengan 1 set data saja
         val dataSet = BarDataSet(entries, "Kehadiran Hari Ini").apply {
             colors = warnaStatus
             valueTextSize = 12f
             valueTextColor = Color.BLACK
         }
 
-        // Setup BarData
         val barData = BarData(dataSet).apply {
-            barWidth = 0.5f  // Lebar bar disesuaikan untuk 5 bar
+            barWidth = 0.5f
             setValueFormatter(object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
                     return value.toInt().toString()
@@ -194,12 +232,10 @@ class Dashboard : AppCompatActivity() {
             })
         }
 
-        // Setup chart
         barChart.apply {
             data = barData
-            description.isEnabled = false // Sembunyikan deskripsi default
+            description.isEnabled = false
 
-            // X Axis - Label status
             xAxis.apply {
                 valueFormatter = object : ValueFormatter() {
                     override fun getFormattedValue(value: Float): String {
@@ -211,11 +247,10 @@ class Dashboard : AppCompatActivity() {
                 setDrawGridLines(false)
                 labelCount = labels.size
                 textSize = 10f
-                axisMinimum = -0.5f  // Margin kiri
-                axisMaximum = labels.size - 0.5f // Margin kanan
+                axisMinimum = -0.5f
+                axisMaximum = labels.size - 0.5f
             }
 
-            // Y Axis - Jumlah
             axisLeft.apply {
                 axisMinimum = 0f
                 granularity = 10f
@@ -226,33 +261,24 @@ class Dashboard : AppCompatActivity() {
             }
 
             axisRight.isEnabled = false
-
-            // Legend - Update legend untuk 5 kategori
             legend.isEnabled = true
             legend.textSize = 10f
             legend.formSize = 10f
 
-            // Interaksi
             setTouchEnabled(true)
-            setPinchZoom(false)  // Nonaktifkan pinch zoom
+            setPinchZoom(false)
             setDrawGridBackground(false)
             setDrawBarShadow(false)
-            setDrawValueAboveBar(true)  // Tampilkan nilai di atas bar
-
-            // Nonaktifkan animasi yang tidak perlu
+            setDrawValueAboveBar(true)
             setDragEnabled(false)
             setScaleEnabled(false)
             setDoubleTapToZoomEnabled(false)
 
-            // Animate
             animateY(1000)
-
-            // Refresh chart
             invalidate()
         }
     }
 
-    // ===== UPDATE JAM & TANGGAL REAL TIME =====
     private fun updateTanggalJam() {
         isRunning = true
         handler.post(object : Runnable {
@@ -274,9 +300,8 @@ class Dashboard : AppCompatActivity() {
 
                 tvTanggal.text = tanggal
                 tvJam.text = jam
-                tvDateCard.text = tanggal  // Update tanggal di card juga
+                tvDateCard.text = tanggal
 
-                // Update data statistik setiap 30 detik (hanya jika belum di-update dalam 30 detik terakhir)
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastUpdateTime >= 30000) {
                     updateDataStatistik()
@@ -296,7 +321,6 @@ class Dashboard : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh data saat kembali ke dashboard
         updateDataStatistik()
     }
 }

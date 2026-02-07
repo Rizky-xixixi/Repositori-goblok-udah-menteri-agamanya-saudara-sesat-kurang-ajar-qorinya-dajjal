@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="420dp"
+    android:orientation="vertical"
+    android:layout_gravity="center"
+    android:gravity="center"
+    android:background="@drawable/bg_ajukan_dispensasi"
+    android:padding="20dp">
+
+    <!-- Judul -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="Jadwal Pembelajaran"
+        android:textSize="30sp"
+        android:layout_marginBottom="25dp"
+        android:textStyle="bold"
+        android:textColor="#28425C"/>
+
+    <!-- Nama Lengkap -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Upload File Jadwal"
+        android:layout_gravity="start"
+        android:textSize="16sp"
+        android:textColor="#303030"
+        android:textStyle="bold"
+        android:layout_marginBottom="5dp"/>
+
+    <LinearLayout
+        android:id="@+id/box_nama_siswa"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/box_izin_guru"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="10dp"
+        android:layout_marginBottom="15dp">
+
+        <TextView
+            android:id="@+id/namafile"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:hint="Masukkan (png/jpg)"
+            android:textColor="#000000"
+            android:textColorHint="#000000"
+            android:textStyle="bold"
+            android:paddingEnd="8dp"
+            android:singleLine="true"
+            android:imeOptions="actionDone"/>
+
+        <ImageButton
+            android:id="@+id/btn_tambahkanfile"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:src="@drawable/add_2"
+            android:scaleType="centerCrop"/>
+    </LinearLayout>
+
+    <!-- Keterangan -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pilih Kelas/Jurusan"
+        android:textSize="16sp"
+        android:layout_gravity="start"
+        android:textColor="#303030"
+        android:textStyle="bold"
+        android:layout_marginBottom="5dp"/>
+
+    <LinearLayout
+        android:id="@+id/btn_dropdown_kelasjurusan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/box_izin_guru"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="10dp"
+        android:layout_marginBottom="15dp">
+
+        <EditText
+            android:id="@+id/input_kelasjurusan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:backgroundTint="@null"
+            android:hint="Pilih Kelas/Jurusan"
+            android:textColor="#000000"
+            android:textColorHint="#000000"
+            android:textStyle="bold"
+            android:paddingEnd="8dp"
+            android:singleLine="true"
+            android:imeOptions="actionDone"/>
+
+        <ImageButton
+            android:id="@+id/btn_dropdown_arrow2"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/icon_dropdown2"
+            android:background="@android:color/transparent"
+            android:scaleType="centerCrop"/>
+    </LinearLayout>
+
+    <!-- Tombol -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="vertical"
+        android:layout_gravity="center"
+        android:gravity="center">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_upload"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Upload"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:textSize="18dp"
+            android:background="@drawable/btn_kirimizin"
+            android:backgroundTint="#01203F"
+            android:textAllCaps="false"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_batal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_batalizin"
+            android:backgroundTint="@null"/>
+    </LinearLayout>
+
+</LinearLayout>

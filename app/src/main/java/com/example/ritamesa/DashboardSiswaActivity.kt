@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -29,8 +30,6 @@ class DashboardSiswaActivity : AppCompatActivity() {
     private lateinit var btnAssignment: ImageButton
     private lateinit var profileSiswa: ImageView
     private lateinit var profileOverlay: ImageView
-
-    // TAMBAHKAN INI - TextView tanggal di jam layout
     private lateinit var txtTanggalDiJamLayout: TextView
 
     private val handler = Handler(Looper.getMainLooper())
@@ -81,23 +80,16 @@ class DashboardSiswaActivity : AppCompatActivity() {
             btnHome = findViewById(R.id.btnHome)
             btnAssignment = findViewById(R.id.btnAssignment)
             profileSiswa = findViewById(R.id.profile_siswa)
-            profileOverlay = findViewById(R.id.profile_overlay)
-
-            // TAMBAHKAN INI - TextView tanggal di jam layout
+            profileOverlay = findViewById(R.id.profile)
             txtTanggalDiJamLayout = findViewById(R.id.txtTanggalDiJamLayout)
 
-            // DEBUG DETAIL VIEWS
+            // TAMBAHKAN POPUP MENU DI PROFILE
+            findViewById<ImageButton>(R.id.profile).setOnClickListener { view ->
+                showProfileMenu(view)
+            }
+
             Log.d(TAG, "=== VIEW INITIALIZATION ===")
             Log.d(TAG, "txtTanggalSekarang: ${txtTanggalSekarang != null}")
-            Log.d(TAG, "txtWaktuLive: ${txtWaktuLive != null}")
-            Log.d(TAG, "txtJamMasuk: ${txtJamMasuk != null}")
-            Log.d(TAG, "txtJamPulang: ${txtJamPulang != null}")
-            Log.d(TAG, "profileSiswa: ${profileSiswa != null}")
-            Log.d(TAG, "profileOverlay: ${profileOverlay != null}")
-            Log.d(TAG, "recyclerJadwal: ${recyclerJadwal != null}")
-            Log.d(TAG, "btnHome: ${btnHome != null}")
-            Log.d(TAG, "btnAssignment: ${btnAssignment != null}")
-            Log.d(TAG, "=== END VIEW INIT ===")
 
         } catch (e: Exception) {
             Log.e(TAG, "Error in initViews: ${e.message}", e)
@@ -105,25 +97,64 @@ class DashboardSiswaActivity : AppCompatActivity() {
         }
     }
 
+    // ===== PROFILE MENU DENGAN 2 PILIHAN =====
+    private fun showProfileMenu(view: android.view.View) {
+        val popupMenu = PopupMenu(this, view)
+        popupMenu.menuInflater.inflate(R.menu.profile_simple, popupMenu.menu)
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_logout -> {
+                    showLogoutConfirmation()
+                    true
+                }
+                R.id.menu_cancel -> {
+                    Toast.makeText(this, "Menu dibatalkan", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        popupMenu.show()
+    }
+
+    private fun showLogoutConfirmation() {
+        val role = if (isPengurus) "Pengurus Kelas" else "Siswa"
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Logout $role")
+            .setMessage("Yakin ingin logout dari akun $role?")
+            .setPositiveButton("Ya, Logout") { _, _ ->
+                performLogout()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun performLogout() {
+        val intent = Intent(this, LoginAwal::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+        val role = if (isPengurus) "pengurus" else "siswa"
+        Toast.makeText(this, "Logout $role berhasil", Toast.LENGTH_SHORT).show()
+    }
+
     private fun setupDateTime() {
         try {
-            // Format tanggal Indonesia dengan locale Indonesia
             val dateFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.forLanguageTag("id-ID"))
             val currentDate = Date()
             val tanggalHariIni = dateFormat.format(currentDate)
 
-            // Ubah ke format: SENIN, 1 JANUARI 2025 (huruf besar sesuai UI)
             val tanggalFormatBesar = tanggalHariIni.toUpperCase(Locale.forLanguageTag("id-ID"))
 
-            // UPDATE SEMUA TEXTVIEW TANGGAL
             txtTanggalSekarang.text = tanggalFormatBesar
-            txtTanggalDiJamLayout.text = tanggalFormatBesar // TAMBAHKAN INI
+            txtTanggalDiJamLayout.text = tanggalFormatBesar
             txtJamMasuk.text = jamMasukDatabase
             txtJamPulang.text = jamPulangDatabase
 
             Log.d(TAG, "Date setup: $tanggalFormatBesar")
 
-            // Setup live clock dengan timezone WIB
             runnable = object : Runnable {
                 override fun run() {
                     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -282,7 +313,6 @@ class DashboardSiswaActivity : AppCompatActivity() {
         }
     }
 
-    // ========== ADAPTER CLASSES ==========
     private inner class JadwalSiswaAdapter(
         private val jadwalList: List<JadwalSiswaItem>
     ) : RecyclerView.Adapter<JadwalSiswaAdapter.JadwalViewHolder>() {
@@ -333,7 +363,6 @@ class DashboardSiswaActivity : AppCompatActivity() {
         }
     }
 
-    // ========== DATA CLASSES ==========
     data class JadwalSiswaItem(
         val id: Int,
         val sesi: String,

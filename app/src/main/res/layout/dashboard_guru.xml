@@ -70,12 +70,14 @@
                                 android:src="@drawable/profile_guru"
                                 android:contentDescription="Profile Guru" />
 
-                            <ImageView
+                            <ImageButton
+                                android:id="@+id/profile"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:src="@drawable/profile_p"
                                 android:layout_marginLeft="160dp"
                                 android:layout_gravity="center_vertical"
+                                android:background="@color/zxing_transparent"
                                 android:contentDescription="Profile Overlay" />
 
                             <!-- Tanggal Terkini -->

@@ -4,16 +4,25 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.ritamesa.LoginLanjut
 import kotlin.math.abs
 
 class LoginAwal : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_ROLE = "SELECTED_ROLE"  // Tambahkan konstanta
+    }
+
     private lateinit var gestureDetector: GestureDetector
+
+    // Simpan role yang dipilih
+    private var selectedRole: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,10 +36,12 @@ class LoginAwal : AppCompatActivity() {
             insets
         }
 
+        // Setup dropdown SIMPLE - gak pake popup menu yang ribet
+        setupSimpleDropdown()
+
         gestureDetector = GestureDetector(
             this,
             object : GestureDetector.SimpleOnGestureListener() {
-
                 private val SWIPE_THRESHOLD = 100
                 private val SWIPE_VELOCITY_THRESHOLD = 100
 
@@ -40,30 +51,13 @@ class LoginAwal : AppCompatActivity() {
                     velocityX: Float,
                     velocityY: Float
                 ): Boolean {
-
                     if (e1 == null) return false
-
-                    val diffX = e2.x - e1.x
                     val diffY = e2.y - e1.y
 
-                    if (abs(diffX) > abs(diffY)) {
-                        // Horizontal
-                        if (abs(diffX) > SWIPE_THRESHOLD &&
-                            abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
-                        ) {
-                            if (diffX < 0) {
-                                navigateToNext()
-                            }
-                            return true
-                        }
-                    } else {
-                        // Vertical
-                        if (abs(diffY) > SWIPE_THRESHOLD &&
-                            abs(velocityY) > SWIPE_VELOCITY_THRESHOLD
-                        ) {
-                            if (diffY < 0) {
-                                navigateToNext()
-                            }
+                    // Cukup cek swipe up aja
+                    if (abs(diffY) > SWIPE_THRESHOLD && abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffY < 0) { // Swipe UP
+                            navigateToNext()
                             return true
                         }
                     }
@@ -78,8 +72,50 @@ class LoginAwal : AppCompatActivity() {
         }
     }
 
+    private fun setupSimpleDropdown() {
+        val roleEditText = findViewById<EditText>(R.id.role_login)
+        val btnDropdown = findViewById<ImageButton>(R.id.btn_dropdown_arrow)
+
+        // Daftar role
+        val roles = arrayOf(
+            "Admin",
+            "Waka",
+            "Guru",
+            "Wali Kelas",
+            "Siswa",
+            "Pengurus"
+        )
+
+        // Current index
+        var currentIndex = -1
+
+        btnDropdown.setOnClickListener {
+            // SIMPLE: Ganti ke role berikutnya (cycle)
+            currentIndex = (currentIndex + 1) % roles.size
+            selectedRole = roles[currentIndex]
+            roleEditText.setText(selectedRole)
+
+            // Kasih feedback
+            Toast.makeText(this, "Role: $selectedRole", Toast.LENGTH_SHORT).show()
+        }
+
+        // Optional: Kalau klik EditText, juga ganti role
+        roleEditText.setOnClickListener {
+            btnDropdown.performClick()
+        }
+
+        // Set default ke role pertama
+        btnDropdown.performClick()
+    }
+
     private fun navigateToNext() {
+        if (selectedRole.isEmpty()) {
+            Toast.makeText(this, "Pilih role dulu", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val intent = Intent(this, LoginLanjut::class.java)
+        intent.putExtra(EXTRA_ROLE, selectedRole)  // Gunakan konstanta
         startActivity(intent)
         finish()
         overridePendingTransition(

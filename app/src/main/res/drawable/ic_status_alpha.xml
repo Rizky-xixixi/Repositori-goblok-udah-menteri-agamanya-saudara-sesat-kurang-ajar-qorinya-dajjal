@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <!-- Warna merah untuk status Alpha -->
+    <solid android:color="#F44336"/>
+    <!-- Border merah tua -->
+    <stroke
+        android:width="2dp"
+        android:color="#C62828"/>
+    <!-- Ukuran icon -->
+    <size
+        android:width="28dp"
+        android:height="28dp"/>
+</shape>

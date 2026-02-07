@@ -75,13 +75,14 @@
                                 android:contentDescription="Profile Siswa" />
 
                             <!-- Gambar overlay di dalamnya -->
-                            <ImageView
-                                android:id="@+id/profile_overlay"
+                            <ImageButton
+                                android:id="@+id/profile"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:src="@drawable/profile_p"
                                 android:layout_alignParentEnd="true"
                                 android:layout_centerVertical="true"
+                                android:background="@color/zxing_transparent"
                                 android:layout_marginEnd="15dp"
                                 android:contentDescription="Profile Overlay" />
 

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_harian"
+        android:title="Harian" />
+    <item
+        android:id="@+id/menu_mingguan"
+        android:title="Mingguan" />
+    <item
+        android:id="@+id/menu_bulanan"
+        android:title="Bulanan" />
+</menu>

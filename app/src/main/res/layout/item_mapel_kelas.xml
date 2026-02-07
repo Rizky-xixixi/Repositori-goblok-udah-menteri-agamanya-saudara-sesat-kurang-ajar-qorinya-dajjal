@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="350dp"
+    android:layout_height="50dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/rectangle_247"
+    android:padding="16dp">
+
+    <!-- Background Button (bikin transparan) -->
+    <ImageButton
+        android:id="@+id/btnBackground"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Segment Icon (menu) - di KIRI -->
+    <ImageButton
+        android:id="@+id/ivSegment"
+        android:layout_width="35dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/segment"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Nama Kelas - di KANAN -->
+    <TextView
+        android:id="@+id/tvMataPelajaran"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="12 Design Komunikasi Visual 2"
+        android:textColor="#050505"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:layout_marginStart="10dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/ivSegment"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

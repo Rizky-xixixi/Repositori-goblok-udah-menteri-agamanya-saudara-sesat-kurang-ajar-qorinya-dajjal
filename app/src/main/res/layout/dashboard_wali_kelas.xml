@@ -67,10 +67,12 @@
                                 android:src="@drawable/profile_wakel"
                                 android:contentDescription="Profile Wali Kelas" />
 
-                            <ImageView
+                            <ImageButton
+                                android:id="@+id/profile"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:src="@drawable/profile_p"
+                                android:background="@color/zxing_transparent"
                                 android:layout_marginLeft="160dp"
                                 android:layout_gravity="center_vertical"
                                 android:contentDescription="Profile Overlay" />

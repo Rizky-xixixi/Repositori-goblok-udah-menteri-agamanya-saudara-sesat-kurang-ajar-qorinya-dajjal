@@ -57,10 +57,10 @@ class SimpleGuruAdapter(
             // Handle badge dengan try-catch terpisah
             try {
                 val badgeResId = when (data.getOrDefault("statusType", "sakit")) {
-                    "hadir" -> R.drawable.pin_hadir
-                    "sakit" -> R.drawable.pin_sakit
-                    "izin" -> R.drawable.pin_izin
-                    "alpha" -> R.drawable.pin_alpha
+                    "hadir" -> R.drawable.siswa_hadir_wakel
+                    "sakit" -> R.drawable.siswa_sakit_wakel
+                    "izin" -> R.drawable.siswa_izin_wakel
+                    "alpha" -> R.drawable.siswa_alpha_wakel
                     else -> R.drawable.pin_sakit
                 }
                 holder.imgBadge?.setImageResource(badgeResId)

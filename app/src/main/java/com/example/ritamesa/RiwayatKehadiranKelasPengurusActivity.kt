@@ -1,6 +1,5 @@
 package com.example.ritamesa
 
-import android.app.DatePickerDialog
 import android.app.Dialog
 import android.content.Intent
 import android.graphics.Color
@@ -40,7 +39,6 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
     private var totalAlpha = 0
 
     private var isPengurus = true
-    private var selectedDate = Calendar.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,7 +47,6 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
         setContentView(R.layout.riwayat_kehadiran_kelas_pengurus)
 
         initViews()
-        setupCalendarButton()
         setupStatistik()
         setupSiswaData()
         setupRecyclerView()
@@ -67,6 +64,9 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
         // PERHATIAN: Di layout pengurus, id nya adalah icon_calendar (ImageButton)
         btnCalendar = findViewById(R.id.icon_calendar)
 
+        // Sembunyikan tombol kalender karena tidak ada filter tanggal
+        btnCalendar.visibility = View.GONE
+
         val txtJumlah: TextView = findViewById(R.id.text_jumlah_siswa)
         txtJumlah.text = "Total Mata Pelajaran: 8"
 
@@ -75,37 +75,11 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
         updateTanggalDisplay()
     }
 
-    private fun setupCalendarButton() {
-        btnCalendar.setOnClickListener {
-            showDatePicker()
-        }
-    }
-
-    private fun showDatePicker() {
-        val year = selectedDate.get(Calendar.YEAR)
-        val month = selectedDate.get(Calendar.MONTH)
-        val day = selectedDate.get(Calendar.DAY_OF_MONTH)
-
-        val datePickerDialog = DatePickerDialog(
-            this,
-            { _, selectedYear, selectedMonth, selectedDay ->
-                selectedDate.set(selectedYear, selectedMonth, selectedDay)
-                updateTanggalDisplay()
-                filterDataByDate()
-            },
-            year,
-            month,
-            day
-        )
-
-        datePickerDialog.datePicker.maxDate = System.currentTimeMillis()
-        datePickerDialog.show()
-    }
-
     private fun updateTanggalDisplay() {
         try {
             val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
-            val formatted = sdf.format(selectedDate.time)
+            val currentDate = Date()
+            val formatted = sdf.format(currentDate)
 
             val finalDate = if (formatted.isNotEmpty()) {
                 formatted[0].uppercaseChar() + formatted.substring(1)
@@ -207,13 +181,6 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
             (resources.displayMetrics.widthPixels * 0.9).toInt(),
             (resources.displayMetrics.heightPixels * 0.8).toInt()
         )
-    }
-
-    private fun filterDataByDate() {
-        Toast.makeText(this, "Memfilter data untuk tanggal terpilih...", Toast.LENGTH_SHORT).show()
-        // Implementasi filter data berdasarkan tanggal
-        setupStatistik()
-        setupRecyclerView()
     }
 
     private fun setupButtonListeners() {

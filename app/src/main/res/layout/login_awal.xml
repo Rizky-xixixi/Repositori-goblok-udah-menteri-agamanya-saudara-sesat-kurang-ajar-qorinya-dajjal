@@ -90,6 +90,59 @@
         app:layout_constraintTop_toBottomOf="@+id/imageView2" />
 
     <TextView
+        android:id="@+id/textpilihrole"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="120dp"
+        android:shadowColor="#88000000"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="3"
+        android:text="Masuk Sebagai:"
+        android:textColor="#121212"
+        android:textSize="15sp"
+        app:layout_constraintBottom_toBottomOf="@id/textView4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/btn_pilihrole"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/box_izin_guru"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="10dp"
+        app:layout_constraintBottom_toBottomOf="@id/textView4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginBottom="70dp">
+
+        <EditText
+            android:id="@+id/role_login"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:backgroundTint="@null"
+            android:hint="Pilih Role"
+            android:textColor="#000000"
+            android:textColorHint="#000000"
+            android:textStyle="bold"
+            android:paddingEnd="8dp"
+            android:singleLine="true"
+            android:imeOptions="actionDone"/>
+
+        <ImageButton
+            android:id="@+id/btn_dropdown_arrow"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/icon_dropdown2"
+            android:background="@android:color/transparent"
+            android:scaleType="centerCrop"/>
+    </LinearLayout>
+
+    <TextView
         android:id="@+id/textView4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

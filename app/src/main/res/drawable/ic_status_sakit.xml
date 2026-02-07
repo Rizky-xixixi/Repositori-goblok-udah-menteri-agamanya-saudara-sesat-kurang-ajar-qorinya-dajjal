@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <!-- Warna kuning untuk status Sakit -->
+    <solid android:color="#FFC107"/>
+    <!-- Border kuning tua/orange -->
+    <stroke
+        android:width="2dp"
+        android:color="#F57C00"/>
+    <!-- Ukuran icon -->
+    <size
+        android:width="28dp"
+        android:height="28dp"/>
+</shape>

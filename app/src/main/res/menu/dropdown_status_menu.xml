@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_hadir"
+        android:title="Hadir" />
+
+    <item
+        android:id="@+id/menu_izin"
+        android:title="Izin" />
+
+    <item
+        android:id="@+id/menu_sakit"
+        android:title="Sakit" />
+
+    <item
+        android:id="@+id/menu_alpha"
+        android:title="Alpha" />
+
+    <item
+        android:id="@+id/menu_terlambat"
+        android:title="Terlambat" />
+    <item
+        android:id="@+id/menu_semua"
+        android:title="Semua" />
+</menu>

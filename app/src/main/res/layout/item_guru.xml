@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/itemContainer"
+    android:layout_width="match_parent"
+    android:layout_height="53dp"
+    android:layout_marginBottom="8dp">
+
+    <ImageView
+        android:id="@+id/imageView9"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="1dp"
+        android:layout_marginBottom="4dp"
+        android:src="@drawable/rectangle_68_2" />
+
+    <!-- PERHATIAN: ID HARUS PERSIS SEPERTI DI ADAPTER -->
+    <RelativeLayout
+        android:layout_width="332dp"
+        android:layout_height="22dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="79dp"
+        android:layout_marginBottom="15dp">
+
+        <TextView
+            android:id="@+id/tvNomor"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="316dp"
+            android:layout_marginBottom="2dp"
+            android:fontFamily="@font/inter"
+            android:gravity="left|center"
+            android:text="1"
+            android:textColor="#000000"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvNama"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="217dp"
+            android:layout_marginBottom="1dp"
+            android:fontFamily="@font/inter"
+            android:gravity="left|center"
+            android:text="Nama Guru"
+            android:textColor="#000000"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvTelepon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="115dp"
+            android:layout_marginBottom="4dp"
+            android:fontFamily="@font/inter"
+            android:gravity="left|center"
+            android:text="086789123"
+            android:textColor="#000000"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvMataPelajaran"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="2dp"
+            android:layout_marginBottom="1dp"
+            android:fontFamily="@font/inter"
+            android:gravity="left|center"
+            android:text="Bahasa Inggris"
+            android:textColor="#000000"
+            android:textSize="14sp" />
+
+    </RelativeLayout>
+
+    <ImageButton
+        android:id="@+id/btnLihat"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentEnd="true"
+    android:layout_alignParentBottom="true"
+    android:layout_marginEnd="1dp"
+    android:layout_marginBottom="5dp"
+    android:backgroundTint="#00FFFFFF"
+    android:src="@drawable/rectangle_178" />
+
+    <TextView
+        android:id="@+id/tvLabelLihat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="16dp"
+        android:fontFamily="@font/inter_semibold"
+        android:text="Lihat"
+        android:textColor="#000000"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+</RelativeLayout>

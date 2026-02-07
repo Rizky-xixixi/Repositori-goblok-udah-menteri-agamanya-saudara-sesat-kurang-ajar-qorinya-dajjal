@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+    <RelativeLayout
+        android:layout_width="411dp"
+        android:layout_height="94dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0">
+
+        <ImageView
+            android:id="@+id/imageView28"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="7dp"
+            app:srcCompat="@drawable/rectangle_245" />
+
+        <FrameLayout
+            android:layout_width="157dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="238dp"
+            android:layout_marginBottom="66dp">
+
+            <ImageView
+                android:id="@+id/imageView29"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:srcCompat="@drawable/rectangle_244" />
+
+            <TextView
+                android:id="@+id/textView25"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Senin,2 Februari 2026"
+                android:textColor="#000000"
+                android:textSize="11sp" />
+        </FrameLayout>
+
+        <RelativeLayout
+            android:layout_width="184dp"
+            android:layout_height="16dp"
+            android:layout_alignEnd="@+id/imageView28"
+            android:layout_alignBottom="@+id/imageView28"
+            android:layout_marginEnd="182dp"
+            android:layout_marginBottom="34dp">
+
+            <TextView
+                android:id="@+id/textView26"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="107dp"
+                android:layout_marginBottom="2dp"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Mata Pelajaran :"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/textView27"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_marginEnd="20dp"
+                android:fontFamily="@font/inter"
+                android:text="Bahasa Indonesia"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="174dp"
+            android:layout_height="17dp"
+            android:layout_alignEnd="@+id/imageView28"
+            android:layout_alignBottom="@+id/imageView28"
+            android:layout_marginEnd="7dp"
+            android:layout_marginBottom="33dp">
+
+            <TextView
+                android:id="@+id/textView30"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="131dp"
+                android:layout_marginBottom="2dp"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Status   :"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+
+            <ImageView
+                android:id="@+id/imageView32"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="86dp"
+                android:layout_marginBottom="3dp"
+                app:srcCompat="@drawable/group_556" />
+
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="184dp"
+            android:layout_height="16dp"
+            android:layout_alignEnd="@+id/imageView28"
+            android:layout_alignBottom="@+id/imageView28"
+            android:layout_marginEnd="182dp"
+            android:layout_marginBottom="18dp">
+
+            <TextView
+                android:id="@+id/textView28"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="107dp"
+                android:layout_marginBottom="2dp"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Jurusan/Kelas :"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/textView29"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_marginEnd="61dp"
+                android:fontFamily="@font/inter"
+                android:text="XII RPL 1"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="175dp"
+            android:layout_height="16dp"
+            android:layout_alignEnd="@+id/imageView28"
+            android:layout_alignBottom="@+id/imageView28"
+            android:layout_marginEnd="6dp"
+            android:layout_marginBottom="17dp">
+
+            <TextView
+                android:id="@+id/textView32"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="112dp"
+                android:layout_marginBottom="1dp"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Keterangan :"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/textView33"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_marginEnd="50dp"
+                android:fontFamily="@font/inter"
+                android:text="Tepat Waktu"
+                android:textColor="#000000"
+                android:textSize="10sp" />
+        </RelativeLayout>
+
+    </RelativeLayout>
+
+    <ImageView
+        android:id="@+id/imageView34"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.139"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.254"
+        app:srcCompat="@drawable/group_556__1_" />
+
+    <ImageView
+        android:id="@+id/imageView35"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.284"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.254"
+        app:srcCompat="@drawable/group_556__3_" />
+
+    <ImageView
+        android:id="@+id/imageView36"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.436"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.254"
+        app:srcCompat="@drawable/group_556__2_" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

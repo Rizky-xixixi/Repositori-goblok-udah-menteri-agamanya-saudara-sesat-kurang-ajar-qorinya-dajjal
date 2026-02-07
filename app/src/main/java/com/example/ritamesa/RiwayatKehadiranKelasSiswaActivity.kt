@@ -1,6 +1,5 @@
 package com.example.ritamesa
 
-import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -37,17 +36,12 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
     private var totalSakit = 0
     private var totalAlpha = 0
 
-    private var selectedDate = Calendar.getInstance()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.riwayat_kehadiran_kelas_siswa)
 
         // Inisialisasi views
         initViews()
-
-        // Setup calendar button
-        setupCalendarButton()
 
         // Setup statistik
         setupStatistik()
@@ -76,6 +70,9 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         // PERHATIAN: Di layout siswa, id nya adalah icon_calendar (ImageButton)
         btnCalendar = findViewById(R.id.icon_calendar)
 
+        // Sembunyikan tombol kalender karena tidak ada filter tanggal
+        btnCalendar.visibility = View.GONE
+
         // SET TEKS SEDERHANA
         txtJumlah.text = "Total Mata Pelajaran: 6"
         updateTanggalDisplay()
@@ -84,37 +81,11 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         recyclerRiwayat = findViewById(R.id.recycler_riwayat)
     }
 
-    private fun setupCalendarButton() {
-        btnCalendar.setOnClickListener {
-            showDatePicker()
-        }
-    }
-
-    private fun showDatePicker() {
-        val year = selectedDate.get(Calendar.YEAR)
-        val month = selectedDate.get(Calendar.MONTH)
-        val day = selectedDate.get(Calendar.DAY_OF_MONTH)
-
-        val datePickerDialog = DatePickerDialog(
-            this,
-            { _, selectedYear, selectedMonth, selectedDay ->
-                selectedDate.set(selectedYear, selectedMonth, selectedDay)
-                updateTanggalDisplay()
-                filterDataByDate()
-            },
-            year,
-            month,
-            day
-        )
-
-        datePickerDialog.datePicker.maxDate = System.currentTimeMillis()
-        datePickerDialog.show()
-    }
-
     private fun updateTanggalDisplay() {
         try {
             val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
-            val formatted = sdf.format(selectedDate.time)
+            val currentDate = Date()
+            val formatted = sdf.format(currentDate)
 
             val finalDate = if (formatted.isNotEmpty()) {
                 formatted[0].uppercaseChar() + formatted.substring(1)
@@ -148,12 +119,12 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
 
         // Data dummy untuk siswa
         val dummyData = listOf(
-            RiwayatSiswaItem("1", "B. Indonesia", "Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("2", "Matematika", "Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("3", "IPA", "Izin Sakit", "izin"),
-            RiwayatSiswaItem("4", "Bahasa Inggris", "Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("5", "IPS", "Alpha", "alpha"),
-            RiwayatSiswaItem("6", "Seni Budaya", "Sakit", "sakit")
+            RiwayatSiswaItem("1-2", "B. Indonesia",  "Hadir Tepat Waktu", "hadir"),
+            RiwayatSiswaItem("3-4", "Matematika",    "Hadir Tepat Waktu", "hadir"),
+            RiwayatSiswaItem("5-6", "IPAS",           "Izin Sakit",        "izin"),
+            RiwayatSiswaItem("7-8", "Bahasa Inggris","Hadir Tepat Waktu", "hadir"),
+            RiwayatSiswaItem("9"  , "Bahasa Jawa", "Tanpa Keterangan", "tidak hadir"),
+            RiwayatSiswaItem("10" , "Seni Budaya",   "Sakit",             "sakit")
         )
 
         // Hitung statistik
@@ -162,18 +133,13 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
                 "hadir" -> totalHadir++
                 "izin" -> totalIzin++
                 "sakit" -> totalSakit++
-                "alpha" -> totalAlpha++
+                "tidak hadir" -> totalAlpha++
             }
         }
 
         // Tambahkan ke list
         riwayatList.clear()
         riwayatList.addAll(dummyData)
-    }
-
-    private fun filterDataByDate() {
-        Toast.makeText(this, "Memfilter data untuk tanggal terpilih...", Toast.LENGTH_SHORT).show()
-        // Di sini bisa reload data berdasarkan tanggal yang dipilih
     }
 
     private fun setupRecyclerView() {
@@ -254,7 +220,7 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: RiwayatViewHolder, position: Int) {
             val riwayat = riwayatList[position]
 
-            holder.txtSession.text = "Mapel ${riwayat.id}"
+            holder.txtSession.text = "Jam ${riwayat.id}"
             holder.txtMataPelajaran.text = riwayat.mataPelajaran
             holder.txtKeterangan.text = riwayat.keterangan
 
@@ -263,7 +229,7 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
                 "hadir" -> holder.imgBadge.setImageResource(R.drawable.siswa_hadir_wakel)
                 "izin" -> holder.imgBadge.setImageResource(R.drawable.siswa_izin_wakel)
                 "sakit" -> holder.imgBadge.setImageResource(R.drawable.siswa_sakit_wakel)
-                "alpha" -> holder.imgBadge.setImageResource(R.drawable.siswa_alpha_wakel)
+                "tidak hadir" -> holder.imgBadge.setImageResource(R.drawable.siswa_alpha_wakel)
             }
         }
 

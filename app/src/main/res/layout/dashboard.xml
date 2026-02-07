@@ -58,8 +58,8 @@
                         android:layout_height="match_parent"
                         android:src="@drawable/rectangle_26" />
 
-                    <ImageView
-                        android:id="@+id/profile_icon"
+                    <ImageButton
+                        android:id="@+id/profile"
                         android:layout_width="59dp"
                         android:layout_height="61dp"
                         android:layout_alignParentEnd="true"
@@ -511,7 +511,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="■ Izin"
-                                    android:textColor="#FFEB3B"
+                                    android:textColor="#6D9217"
                                     android:textSize="10sp" />
                             </LinearLayout>
 
@@ -527,7 +527,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginEnd="8dp"
                                     android:text="■ Sakit"
-                                    android:textColor="#DC8971"
+                                    android:textColor="#600D6F"
                                     android:textSize="10sp" />
 
                                 <TextView

@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="50dp"
+    android:layout_height="55dp"
     android:layout_gravity="center_horizontal"
     android:padding="6dp"
     android:layout_marginBottom="3dp"
@@ -49,9 +49,9 @@
             android:layout_height="wrap_content"
             android:text="B. Indonesia"
             android:textColor="@color/black"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="5dp"
             android:textStyle="bold"
-            android:layout_marginStart="140dp"
+            android:layout_marginStart="155dp"
             android:textSize="9sp"/>
 
         <TextView
@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:text="Siswa Hadir Tepat Waktu"
             android:layout_gravity="start"
-            android:layout_marginStart="5dp"
+            android:layout_marginStart="25dp"
             android:layout_marginTop="3dp"
             android:textColor="@color/black"
             android:textSize="10sp"/>
