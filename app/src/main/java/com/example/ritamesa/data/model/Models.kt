@@ -18,10 +18,24 @@ data class LoginResponse(
 data class User(
     val id: Int,
     val name: String,
-    val email: String,
-    val role: String,
+    val email: String?,
+    @SerializedName("user_type") val role: String, // Map user_type from backend to role
     @SerializedName("is_class_officer") val isClassOfficer: Boolean = false,
     val profile: UserProfile?
+)
+
+data class DeviceRequest(
+    val identifier: String,
+    val name: String,
+    val platform: String = "Android"
+)
+
+data class Device(
+    val id: Int,
+    val identifier: String,
+    val name: String,
+    val platform: String?,
+    val active: Boolean
 )
 
 data class UserProfile(
@@ -69,13 +83,55 @@ data class JadwalItem(
     @SerializedName("start_time") val startTime: String,
     @SerializedName("end_time") val endTime: String,
     @SerializedName("teacher") val teacherName: String? = null, // For student dashboard
+    @SerializedName("class_id") val classId: Int? = null, // ADDED for deep linking
     val status: String? = null, // For student dashboard
     @SerializedName("status_label") val statusLabel: String? = null,
     @SerializedName("check_in_time") val checkInTime: String? = null
 ) {
     val waktuPelajaran: String
         get() = "$startTime - $endTime"
+    val statusDispensasi: String
+        get() = when(status) {
+            "approved" -> "Disetujui"
+            "rejected" -> "Ditolak"
+            else -> "Menunggu"
+        }
 }
+
+data class StudentAttendanceAdminResponse(
+    val student: StudentProfile?,
+    val items: List<StudentAttendanceItem> // items are basically attendance records
+)
+
+// ===== TEACHER RECAP MODELS =====
+data class TeacherListResponse(
+    val data: List<TeacherItem>,
+    val meta: Meta? = null,
+    val links: Links? = null
+)
+
+data class TeacherItem(
+    val id: Int,
+    val nip: String?,
+    @SerializedName("subject") val subject: String?,
+    val user: UserInfo?,
+    @SerializedName("homeroom_class") val homeroomClass: ClassInfoSimple?
+) {
+    val name: String get() = user?.name ?: "-"
+    val mapel: String get() = subject ?: "-"
+}
+
+data class Meta(
+    @SerializedName("current_page") val currentPage: Int,
+    @SerializedName("last_page") val lastPage: Int
+)
+
+data class Links(
+    val first: String?,
+    val last: String?,
+    val prev: String?,
+    val next: String?
+)
 
 data class AttendanceSummary(
     val present: Int,
@@ -264,6 +320,17 @@ data class MajorInfo(
     val code: String
 )
 
+data class ClassDetailResponse(
+    val id: Int,
+    val name: String,
+    val grade: String,
+    val label: String,
+    @SerializedName("major") val major: MajorInfo?,
+    @SerializedName("homeroom_teacher") val homeroomTeacher: TeacherProfile?,
+    @SerializedName("schedule_image_path") val scheduleImagePath: String?,
+    val students: List<StudentItem>? // List of students in the class
+)
+
 // ===== NEW MODELS FOR STUDENT CRUD =====
 
 data class StudentListResponse(
@@ -325,4 +392,175 @@ data class UpdateStudentRequest(
 
 data class GeneralResponse(
     val message: String
+)
+
+data class TeacherStatisticsResponse(
+    val month: String,
+    val year: String,
+    val summary: StatisticsSummary,
+    @SerializedName("chart_data") val chartData: List<DailyStatistic>
+)
+
+data class StatisticsSummary(
+    val hadir: Int,
+    val sakit: Int,
+    val izin: Int,
+    val alfa: Int,
+    val terlambat: Int = 0
+)
+
+data class DailyStatistic(
+    val day: Int,
+    val status: String
+)
+
+data class WakaDashboardResponse(
+    val date: String,
+    val statistik: WakaStatistik,
+    val trend: List<WakaTrendItem>
+)
+
+data class WakaStatistik(
+    val hadir: Int,
+    val izin: Int,
+    val sakit: Int,
+    val alpha: Int,
+    val terlambat: Int,
+    val pulang: Int
+)
+
+data class WakaTrendItem(
+    val date: String,
+    val label: String,
+    val hadir: Int,
+    val izin: Int,
+    val sakit: Int,
+    val alpha: Int,
+    val terlambat: Int
+)
+
+data class CreateMajorRequest(
+    val name: String,
+    val code: String
+)
+
+data class CreateClassRequest(
+    val grade: String,
+    val label: String,
+    @SerializedName("major_id") val majorId: Int?
+)
+
+data class AdminDashboardResponse(
+    @SerializedName("students_count") val totalSiswa: Int,
+    @SerializedName("teachers_count") val totalGuru: Int,
+    @SerializedName("classes_count") val totalKelas: Int,
+    @SerializedName("majors_count") val totalJurusan: Int,
+    @SerializedName("attendance_today") val attendance: AdminAttendanceStats
+)
+
+data class AdminAttendanceStats(
+    val hadir: Int,
+    val izin: Int,
+    val sakit: Int,
+    val alpha: Int,
+    val terlambat: Int,
+    val pulang: Int
+)
+
+data class WakaAttendanceSummaryResponse(
+    @SerializedName("status_summary") val statusSummary: List<StatusSummaryItem>,
+    // class_summary and student_summary omitted for now as not needed for chart
+)
+
+data class StatusSummaryItem(
+    val status: String,
+    val total: Int
+)
+
+data class CreateTeacherRequest(
+    val name: String,
+    val username: String,
+    val email: String?,
+    val password: String,
+    val nip: String,
+    val phone: String?,
+    val contact: String?,
+    @SerializedName("homeroom_class_id") val homeroomClassId: Int?,
+    val subject: String?
+)
+
+data class UpdateTeacherRequest(
+    val name: String?,
+    val email: String?,
+    val phone: String?,
+    val contact: String?,
+    @SerializedName("homeroom_class_id") val homeroomClassId: Int?,
+    val subject: String?
+)
+
+data class BulkAttendanceRequest(
+    @SerializedName("schedule_id") val scheduleId: Int,
+    val date: String,
+    val items: List<BulkAttendanceItem>
+)
+
+data class BulkAttendanceItem(
+    @SerializedName("student_id") val studentId: Int,
+    val status: String
+)
+
+data class ClassAttendanceByDateResponse(
+    val items: List<ClassAttendanceScheduleItem>
+)
+
+data class ClassAttendanceScheduleItem(
+    val schedule: ScheduleInfo?,
+    val attendances: List<Attendance>
+)
+
+
+data class SchoolAttendanceResponse(
+    val data: List<SchoolAttendanceItem>,
+    @SerializedName("current_page") val currentPage: Int,
+    @SerializedName("last_page") val lastPage: Int
+)
+
+data class SchoolAttendanceItem(
+    val id: Int,
+    val date: String,
+    val status: String,
+    @SerializedName("checked_in_at") val checkedInTime: String?,
+    @SerializedName("attendee_type") val attendeeType: String,
+    val student: StudentProfile?,
+    val teacher: TeacherProfile?,
+    val schedule: ScheduleInfo?
+)
+
+data class AbsenceRequestRequest(
+    @SerializedName("type") val type: String, // "sakit", "izin", "izin_pulang"
+    @SerializedName("date") val date: String,
+    @SerializedName("reason") val reason: String,
+    @SerializedName("schedule_id") val scheduleId: Int? = null,
+    @SerializedName("student_id") val studentId: Int? = null // For teacher submitting on behalf of student (Dispensasi)
+)
+
+data class AbsenceRequestResponse(
+    val data: List<AbsenceRequestItem>
+)
+
+data class AbsenceRequestItem(
+    val id: Int,
+    val type: String,
+    val date: String,
+    val reason: String,
+    val status: String,
+    val user: User?,
+    val schedule: ScheduleInfo?
+)
+
+data class UpdateProfileRequest(
+    val name: String,
+    val email: String? = null,
+    val phone: String? = null,
+    val address: String? = null
 )

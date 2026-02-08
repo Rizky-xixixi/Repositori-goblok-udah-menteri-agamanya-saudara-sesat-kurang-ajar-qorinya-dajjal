@@ -62,6 +62,7 @@ class DashboardWaka : AppCompatActivity() {
                 timeTextView = findViewById(R.id.textView21)
                 updateDateTime()
                 handler.post(updateTimeRunnable)
+                loadDashboardData() // Load data API
             } catch (e: Exception) {
                 Log.w(TAG, "⚠ TextView untuk date/time tidak ditemukan", e)
             }
@@ -330,40 +331,80 @@ class DashboardWaka : AppCompatActivity() {
         }
     }
 
-    class PercentageFormatter : ValueFormatter() {
-        override fun getFormattedValue(value: Float): String {
-            return if (value > 0) "${value.toInt()}%" else ""
-        }
+    private fun loadDashboardData() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        Log.d(TAG, "Loading Waka Dashboard data...")
+        apiService.getWakaDashboard().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.WakaDashboardResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.WakaDashboardResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.WakaDashboardResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val data = response.body()
+                    if (data != null) {
+                        Log.d(TAG, "Data received: ${data.statistik}")
+                        updateChart(data.statistik)
+                        // Could also update date here using data.date
+                    } else {
+                        Log.e(TAG, "Response body is null")
+                    }
+                } else {
+                    Log.e(TAG, "Error: ${response.code()} ${response.message()}")
+                    Toast.makeText(this@DashboardWaka, "Gagal memuat data: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.WakaDashboardResponse>, t: Throwable) {
+                Log.e(TAG, "Network Error", t)
+                Toast.makeText(this@DashboardWaka, "Network Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun setupBarChart() {
+        // Initial setup empty or loading
+        val chart = barChart ?: return
+        chart.setNoDataText("Memuat data...")
+        chart.invalidate()
+    }
+
+    private fun updateChart(statistik: com.example.ritamesa.data.model.WakaStatistik) {
         val chart = barChart ?: return
 
         val entries = ArrayList<BarEntry>()
-        entries.add(BarEntry(0f, 90f))
-        entries.add(BarEntry(1f, 60f))
-        entries.add(BarEntry(2f, 65f))
-        entries.add(BarEntry(3f, 45f))
-        entries.add(BarEntry(4f, 55f))
-        entries.add(BarEntry(5f, 85f))
+        // Labels: "Hadir", "Izin", "Sakit", "Tidak Hadir", "Terlambat", "Pulang"
+        // Index: 0, 1, 2, 3, 4, 5
+        
+        entries.add(BarEntry(0f, statistik.hadir.toFloat()))
+        entries.add(BarEntry(1f, statistik.izin.toFloat()))
+        entries.add(BarEntry(2f, statistik.sakit.toFloat()))
+        entries.add(BarEntry(3f, statistik.alpha.toFloat()))
+        entries.add(BarEntry(4f, statistik.terlambat.toFloat()))
+        entries.add(BarEntry(5f, statistik.pulang.toFloat()))
 
         val dataSet = BarDataSet(entries, "")
         dataSet.colors = listOf(
-            Color.parseColor("#4CAF50"),
-            Color.parseColor("#FF9800"),
-            Color.parseColor("#2196F3"),
-            Color.parseColor("#F44336"),
-            Color.parseColor("#9C27B0"),
-            Color.parseColor("#00BCD4")
+            Color.parseColor("#4CAF50"), // Hadir
+            Color.parseColor("#FF9800"), // Izin
+            Color.parseColor("#2196F3"), // Sakit
+            Color.parseColor("#F44336"), // Alpha
+            Color.parseColor("#9C27B0"), // Terlambat
+            Color.parseColor("#00BCD4")  // Pulang
         )
         dataSet.valueTextColor = Color.BLACK
         dataSet.valueTextSize = 12f
-        dataSet.valueFormatter = PercentageFormatter()
+        dataSet.valueFormatter = object : ValueFormatter() {
+            override fun getFormattedValue(value: Float): String {
+                return if (value > 0) value.toInt().toString() else ""
+            }
+        }
 
         val barData = BarData(dataSet)
         barData.barWidth = 0.5f
         chart.data = barData
 
+        // Configure axes similar to previous setup
         val xAxis = chart.xAxis
         xAxis.position = XAxis.XAxisPosition.BOTTOM
         xAxis.granularity = 1f
@@ -371,7 +412,7 @@ class DashboardWaka : AppCompatActivity() {
         xAxis.axisMaximum = 5.5f
         xAxis.setDrawGridLines(false)
 
-        val labels = arrayOf("Hadir", "Izin", "Sakit", "Tidak Hadir", "Terlambat", "Pulang")
+        val labels = arrayOf("Hadir", "Izin", "Sakit", "Alpha", "Late", "Pulang")
         xAxis.valueFormatter = IndexAxisValueFormatter(labels)
         xAxis.textSize = 11f
         xAxis.textColor = Color.BLACK
@@ -379,52 +420,21 @@ class DashboardWaka : AppCompatActivity() {
 
         val leftAxis = chart.axisLeft
         leftAxis.axisMinimum = 0f
-        leftAxis.axisMaximum = 100f
-        leftAxis.granularity = 20f
-        leftAxis.textSize = 12f
-        leftAxis.textColor = Color.BLACK
-        leftAxis.valueFormatter = PercentageFormatter()
+        leftAxis.textSize = 10f
         leftAxis.setDrawGridLines(true)
-        leftAxis.gridColor = Color.parseColor("#E0E0E0")
+        
+        // Dynamic Maximum Y
+        val maxValue = listOf(statistik.hadir, statistik.izin, statistik.sakit, statistik.alpha, statistik.terlambat, statistik.pulang).maxOrNull() ?: 10
+        leftAxis.axisMaximum = (maxValue + 5).toFloat()
 
         chart.axisRight.isEnabled = false
-
-        val legend = chart.legend
-        legend.isEnabled = true
-        legend.verticalAlignment = Legend.LegendVerticalAlignment.TOP
-        legend.horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
-        legend.orientation = Legend.LegendOrientation.HORIZONTAL
-        legend.setDrawInside(false)
-        legend.textSize = 10f
-        legend.textColor = Color.BLACK
-        legend.form = Legend.LegendForm.SQUARE
-        legend.formSize = 9f
-        legend.xEntrySpace = 10f
-        legend.yEntrySpace = 2f
-        legend.formToTextSpace = 3f
-
-        val legendEntries = arrayOf(
-            com.github.mikephil.charting.components.LegendEntry("Hadir", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#4CAF50")),
-            com.github.mikephil.charting.components.LegendEntry("Izin", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#FF9800")),
-            com.github.mikephil.charting.components.LegendEntry("Sakit", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#2196F3")),
-            com.github.mikephil.charting.components.LegendEntry("", Legend.LegendForm.NONE, 0f, 0f, null, Color.TRANSPARENT),
-            com.github.mikephil.charting.components.LegendEntry("Tidak Hadir", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#F44336")),
-            com.github.mikephil.charting.components.LegendEntry("Terlambat", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#9C27B0")),
-            com.github.mikephil.charting.components.LegendEntry("Pulang", Legend.LegendForm.SQUARE, 9f, 2f, null, Color.parseColor("#00BCD4"))
-        )
-        legend.setCustom(legendEntries)
-
+        
         chart.description.isEnabled = false
-        chart.setFitBars(true)
-        chart.animateY(1000)
-        chart.setScaleEnabled(false)
-        chart.setPinchZoom(false)
-        chart.setDrawGridBackground(false)
-        chart.setDrawBarShadow(false)
-        chart.setDrawValueAboveBar(true)
-        chart.extraBottomOffset = 15f
-        chart.extraTopOffset = 15f
-
+        chart.legend.isEnabled = false // Labels are enough on axis
+        
+        chart.notifyDataSetChanged()
         chart.invalidate()
+        chart.animateY(1000)
     }
+}
 }

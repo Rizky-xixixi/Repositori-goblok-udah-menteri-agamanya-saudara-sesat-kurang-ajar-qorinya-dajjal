@@ -15,45 +15,53 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.AbsenceRequestItem
+import com.example.ritamesa.data.model.AbsenceRequestResponse
+import com.example.ritamesa.data.model.GeneralResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
+// Enum to match existing usage if needed, or map strings
+enum class StatusDispensasi {
+    MENUNGGU, DISETUJUI, DITOLAK
+}
+
+// Wrapper for adapter compatibility if we don't change adapter
+data class Dispensasi(
+    val id: Int,
+    val namaSiswa: String,
+    val kelas: String,
+    val mataPelajaran: String,
+    val hari: String,
+    val tanggal: String,
+    val jamKe: String,
+    val guruPengajar: String,
+    val catatan: String,
+    val status: StatusDispensasi
+)
 
 class PersetujuanDispensasi : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: DispensasiAdapter
-    private lateinit var allDispensasiList: MutableList<Dispensasi>
+    private var allDispensasiList: MutableList<Dispensasi> = mutableListOf()
     private var currentFilter: StatusDispensasi? = null
     private lateinit var searchEditText: EditText
     private lateinit var kelasDropdown: TextView
+    private lateinit var apiService: ApiService
 
     private val kelasList = listOf(
         "Semua Kelas",
-        "10 Rekayasa Perangkat Lunak 1",
-        "10 Rekayasa Perangkat Lunak 2",
-        "10 Rekayasa Perangkat Lunak 3",
-        "10 Teknik Komputer Jaringan 1",
-        "10 Teknik Komputer Jaringan 2",
-        "10 Teknik Komputer Jaringan 3",
-        "10 Desain Komunikasi Visual 1",
-        "10 Desain Komunikasi Visual 2",
-        "10 Desain Komunikasi Visual 3",
-        "11 Rekayasa Perangkat Lunak 1",
-        "11 Rekayasa Perangkat Lunak 2",
-        "11 Rekayasa Perangkat Lunak 3",
-        "11 Teknik Komputer Jaringan 1",
-        "11 Teknik Komputer Jaringan 2",
-        "11 Teknik Komputer Jaringan 3",
-        "11 Desain Komunikasi Visual 1",
-        "11 Desain Komunikasi Visual 2",
-        "11 Desain Komunikasi Visual 3",
-        "12 Rekayasa Perangkat Lunak 1",
-        "12 Rekayasa Perangkat Lunak 2",
-        "12 Rekayasa Perangkat Lunak 3",
-        "12 Teknik Komputer Jaringan 1",
-        "12 Teknik Komputer Jaringan 2",
-        "12 Teknik Komputer Jaringan 3",
-        "12 Desain Komunikasi Visual 1",
-        "12 Desain Komunikasi Visual 2",
-        "12 Desain Komunikasi Visual 3"
+        "X RPL 1", "X RPL 2", "X RPL 3",
+        "XI RPL 1", "XI RPL 2", "XI RPL 3",
+        "XII RPL 1", "XII RPL 2", "XII RPL 3",
+        "XII TKJ 1", "XII TKJ 2",
+        "XII IPA 1", "XII IPA 2",
+        "XII IPS 1", "XII IPS 2",
+        "XII Mekatronika 1"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,101 +74,67 @@ class PersetujuanDispensasi : AppCompatActivity() {
             insets
         }
 
-        initializeDummyData()
+        apiService = ApiClient.getClient(this).create(ApiService::class.java)
+
         setupRecyclerView()
         setupFilterButtons()
         setupBackButton()
         setupSearch()
         setupKelasDropdown()
+        
+        fetchAbsenceRequests()
     }
-
-    private fun initializeDummyData() {
-        allDispensasiList = mutableListOf(
-            Dispensasi(
-                namaSiswa = "Ahmad Rizki",
-                kelas = "12 Rekayasa Perangkat Lunak 2",
-                mataPelajaran = "Bahasa Indonesia",
-                hari = "Senin",
-                tanggal = "5 Januari 2026",
-                jamKe = "1-2",
-                guruPengajar = "Ibu Siti Rahayu",
-                catatan = "Mengikuti lomba",
-                status = StatusDispensasi.MENUNGGU
-            ),
-            Dispensasi(
-                namaSiswa = "Siti Nurhaliza",
-                kelas = "12 Teknik Komputer Jaringan 1",
-                mataPelajaran = "Matematika",
-                hari = "Selasa",
-                tanggal = "6 Januari 2026",
-                jamKe = "3-4",
-                guruPengajar = "Pak Budi Santoso",
-                catatan = "Sakit",
-                status = StatusDispensasi.DISETUJUI
-            ),
-            Dispensasi(
-                namaSiswa = "Budi Prasetyo",
-                kelas = "10 Rekayasa Perangkat Lunak 1",
-                mataPelajaran = "Pemrograman Web",
-                hari = "Rabu",
-                tanggal = "7 Januari 2026",
-                jamKe = "5-6",
-                guruPengajar = "Pak Andi Wijaya",
-                catatan = "Keperluan keluarga",
-                status = StatusDispensasi.DITOLAK
-            ),
-            Dispensasi(
-                namaSiswa = "Dewi Kartika",
-                kelas = "12 Desain Komunikasi Visual 1",
-                mataPelajaran = "Desain Grafis",
-                hari = "Kamis",
-                tanggal = "8 Januari 2026",
-                jamKe = "2-3",
-                guruPengajar = "Ibu Maya Kusuma",
-                catatan = "Mengikuti workshop",
-                status = StatusDispensasi.MENUNGGU
-            ),
-            Dispensasi(
-                namaSiswa = "Eko Prasetyo",
-                kelas = "10 Teknik Komputer Jaringan 1",
-                mataPelajaran = "Sistem Operasi",
-                hari = "Jumat",
-                tanggal = "9 Januari 2026",
-                jamKe = "1-2",
-                guruPengajar = "Pak Joko Widodo",
-                catatan = "Sakit kepala",
-                status = StatusDispensasi.MENUNGGU
-            ),
-            Dispensasi(
-                namaSiswa = "Fitri Handayani",
-                kelas = "12 Rekayasa Perangkat Lunak 2",
-                mataPelajaran = "Bahasa Inggris",
-                hari = "Senin",
-                tanggal = "12 Januari 2026",
-                jamKe = "4-5",
-                guruPengajar = "Ibu Linda Sari",
-                catatan = "Urusan administrasi",
-                status = StatusDispensasi.DISETUJUI
-            ),
-            Dispensasi(
-                namaSiswa = "Gilang Ramadhan",
-                kelas = "10 Rekayasa Perangkat Lunak 1",
-                mataPelajaran = "Animasi 2D",
-                hari = "Selasa",
-                tanggal = "13 Januari 2026",
-                jamKe = "3-4",
-                guruPengajar = "Pak Dedi Susanto",
-                catatan = "Mengikuti pelatihan",
-                status = StatusDispensasi.MENUNGGU
-            )
-        )
+    
+    private fun fetchAbsenceRequests() {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Memuat data...")
+        pd.show()
+        
+        apiService.getAbsenceRequests().enqueue(object : Callback<AbsenceRequestResponse> {
+            override fun onResponse(call: Call<AbsenceRequestResponse>, response: Response<AbsenceRequestResponse>) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    val data = response.body()?.data ?: emptyList()
+                    allDispensasiList.clear()
+                    
+                    data.forEach { item ->
+                         val statusEnum = when(item.status) {
+                            "approved" -> StatusDispensasi.DISETUJUI
+                            "rejected" -> StatusDispensasi.DITOLAK
+                            else -> StatusDispensasi.MENUNGGU
+                        }
+                        
+                        allDispensasiList.add(Dispensasi(
+                            id = item.id,
+                            namaSiswa = item.studentName,
+                            kelas = item.className,
+                            mataPelajaran = item.schedule?.subjectInfo?.name ?: "-",
+                            hari = "-", // Parse from date if needed
+                            tanggal = item.date,
+                            jamKe = "${item.schedule?.startTime} - ${item.schedule?.endTime}",
+                            guruPengajar = item.schedule?.teacher?.user?.name ?: "-",
+                            catatan = item.reason ?: "-",
+                            status = statusEnum
+                        ))
+                    }
+                    // Initial filter
+                    filterList(currentFilter, searchEditText.text.toString(), kelasDropdown.text.toString())
+                } else {
+                    Toast.makeText(this@PersetujuanDispensasi, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<AbsenceRequestResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@PersetujuanDispensasi, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.recyclerViewDispensasi)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        adapter = DispensasiAdapter(allDispensasiList) { dispensasi ->
+        adapter = DispensasiAdapter(mutableListOf()) { dispensasi ->
             if (dispensasi.status == StatusDispensasi.MENUNGGU) {
                 showDetailDialog(dispensasi)
             }
@@ -264,6 +238,10 @@ class PersetujuanDispensasi : AppCompatActivity() {
     private fun setupKelasDropdown() {
         kelasDropdown = findViewById(R.id.textView45)
         val dropdownButton: ImageButton = findViewById(R.id.imageButton4)
+        // Set default text safely
+        if (kelasDropdown.text.toString() == "Kelas/jurusan") {
+             kelasDropdown.text = "Semua Kelas"
+        }
 
         dropdownButton.setOnClickListener {
             showKelasDropdownDialog()
@@ -280,10 +258,7 @@ class PersetujuanDispensasi : AppCompatActivity() {
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
             dialog.setContentView(R.layout.dropdown_kelas_layout)
             dialog.window?.setBackgroundDrawable(ColorDrawable(Color.WHITE))
-            dialog.window?.setLayout(
-                (resources.displayMetrics.widthPixels * 0.8).toInt(),
-                (resources.displayMetrics.heightPixels * 0.6).toInt()
-            )
+            // dialog.window?.setLayout(...) // Use layout vars if needed
 
             val listView = dialog.findViewById<ListView>(R.id.listViewKelas)
             val adapter = ArrayAdapter(this, R.layout.dropdown_kelas, kelasList)
@@ -323,25 +298,38 @@ class PersetujuanDispensasi : AppCompatActivity() {
         dialog.findViewById<TextView>(R.id.textView24)?.text = dispensasi.catatan
 
         dialog.findViewById<Button>(R.id.button)?.setOnClickListener {
-            val index = allDispensasiList.indexOf(dispensasi)
-            if (index != -1) {
-                allDispensasiList[index] = dispensasi.copy(status = StatusDispensasi.DISETUJUI)
-                filterList(currentFilter, searchEditText.text.toString(), kelasDropdown.text.toString())
-                Toast.makeText(this, "Dispensasi ${dispensasi.namaSiswa} disetujui", Toast.LENGTH_SHORT).show()
-            }
-            dialog.dismiss()
+            processApproval(dispensasi, true, dialog)
         }
 
         dialog.findViewById<Button>(R.id.button6)?.setOnClickListener {
-            val index = allDispensasiList.indexOf(dispensasi)
-            if (index != -1) {
-                allDispensasiList[index] = dispensasi.copy(status = StatusDispensasi.DITOLAK)
-                filterList(currentFilter, searchEditText.text.toString(), kelasDropdown.text.toString())
-                Toast.makeText(this, "Dispensasi ${dispensasi.namaSiswa} ditolak", Toast.LENGTH_SHORT).show()
-            }
-            dialog.dismiss()
+            processApproval(dispensasi, false, dialog)
         }
 
         dialog.show()
+    }
+    
+    private fun processApproval(dispensasi: Dispensasi, isApproved: Boolean, dialog: Dialog) {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Memproses...")
+        pd.show()
+        
+        val call = if (isApproved) apiService.approveAbsence(dispensasi.id) else apiService.rejectAbsence(dispensasi.id)
+        
+        call.enqueue(object : Callback<GeneralResponse> {
+            override fun onResponse(call: Call<GeneralResponse>, response: Response<GeneralResponse>) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    Toast.makeText(this@PersetujuanDispensasi, "Berhasil " + (if(isApproved) "disetujui" else "ditolak"), Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                    fetchAbsenceRequests() // Refresh list
+                } else {
+                    Toast.makeText(this@PersetujuanDispensasi, "Gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<GeneralResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@PersetujuanDispensasi, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 }

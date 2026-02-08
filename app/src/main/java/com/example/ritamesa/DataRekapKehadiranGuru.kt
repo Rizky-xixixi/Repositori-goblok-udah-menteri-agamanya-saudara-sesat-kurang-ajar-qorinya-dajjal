@@ -4,21 +4,26 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.ritamesa.model.Guru
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.*
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import android.content.Intent
-import android.widget.PopupMenu
-import android.widget.Toast
 
 class DataRekapKehadiranGuru : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var editTextSearch: EditText
     private lateinit var adapter: GuruAdapterWaka
-    private val allGuruList = mutableListOf<Guru>()
+    private var allGuruList = mutableListOf<TeacherItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,51 +33,55 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         editTextSearch = findViewById(R.id.editTextText)
 
         setupAllNavigation()
-        createGuruData()
         setupRecyclerView()
         setupSearch()
-    }
-
-    private fun createGuruData() {
-        allGuruList.clear()
-        allGuruList.addAll(listOf(
-            Guru("Ahmad Sudrajat", "2006041001", "Matematika"),
-            Guru("Budi Santoso", "2001121002", "Fisika"),
-            Guru("Siti Nurhaliza", "2012052003", "Bhs. Indonesia"),
-            Guru("Joko Widodo", "1987031004", "Sejarah"),
-            Guru("Ani Wijayanti", "2005012005", "Kimia"),
-            Guru("Diana Putri", "2010082006", "Bhs. Inggris"),
-            Guru("Agus Supriyanto", "2015031007", "Biologi"),
-            Guru("Rina Hartati", "2017082008", "Ekonomi"),
-            Guru("Eko Pratomo", "2009041009", "Geografi"),
-            Guru("Fitriani Sari", "2018032010", "Seni Budaya")
-        ))
+        loadDataFromApi()
     }
 
     private fun setupRecyclerView() {
         recyclerView.layoutManager = LinearLayoutManager(this)
-
-        adapter = GuruAdapterWaka(allGuruList) { guru ->
+        adapter = GuruAdapterWaka(emptyList()) { guru ->
             showPopupDetailGuru(guru)
         }
-
         recyclerView.adapter = adapter
     }
 
-    private fun showPopupDetailGuru(guru: Guru) {
+    private fun loadDataFromApi() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        apiService.getTeachers().enqueue(object : Callback<TeacherListResponse> {
+            override fun onResponse(call: Call<TeacherListResponse>, response: Response<TeacherListResponse>) {
+                if (response.isSuccessful && response.body() != null) {
+                    allGuruList = response.body()!!.data.toMutableList()
+                    adapter.updateData(allGuruList)
+                } else {
+                    Toast.makeText(this@DataRekapKehadiranGuru, "Gagal mengambil data guru", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<TeacherListResponse>, t: Throwable) {
+                Toast.makeText(this@DataRekapKehadiranGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showPopupDetailGuru(guru: TeacherItem) {
         val inflater = LayoutInflater.from(this)
         val popupView = inflater.inflate(R.layout.popup_guru_detail, null)
 
-        popupView.findViewById<TextView>(R.id.tvPopupNama).text = guru.nama
-        popupView.findViewById<TextView>(R.id.tvPopupNip).text = guru.nip
-        popupView.findViewById<TextView>(R.id.tvPopupMapel).text = guru.mataPelajaran
+        popupView.findViewById<TextView>(R.id.tvPopupNama).text = guru.name
+        popupView.findViewById<TextView>(R.id.tvPopupNip).text = guru.nip ?: "-"
+        popupView.findViewById<TextView>(R.id.tvPopupMapel).text = guru.subjectName ?: "-"
 
         val container = popupView.findViewById<LinearLayout>(R.id.containerKehadiran)
-        setupDataKehadiran(container, guru)
+        val progressBar = ProgressBar(this).apply {
+            layoutParams = LinearLayout.LayoutParams(100, 100).apply {
+                gravity = android.view.Gravity.CENTER
+            }
+        }
+        container.addView(progressBar)
 
         val popupWindow = PopupWindow(
             popupView,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
             true
         )
@@ -86,54 +95,65 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         }
 
         popupWindow.showAtLocation(window.decorView.rootView, android.view.Gravity.CENTER, 0, 0)
-    }
 
-    private fun setupDataKehadiran(container: LinearLayout, guru: Guru) {
-        container.removeAllViews()
+        // Fetch History
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        apiService.getTeacherAttendanceAdmin(guru.id).enqueue(object : Callback<List<TeachingAttendanceItem>> {
+            override fun onResponse(call: Call<List<TeachingAttendanceItem>>, response: Response<List<TeachingAttendanceItem>>) {
+                container.removeView(progressBar)
+                if (response.isSuccessful && response.body() != null) {
+                    val history = response.body()!!
+                    if (history.isEmpty()) {
+                        val tvEmpty = TextView(this@DataRekapKehadiranGuru).apply {
+                            text = "Tidak ada riwayat kehadiran"
+                            gravity = android.view.Gravity.CENTER
+                            setPadding(0, 20, 0, 20)
+                            setTextColor(Color.GRAY)
+                        }
+                        container.addView(tvEmpty)
+                    } else {
+                        history.forEach { item ->
+                            val itemView = LayoutInflater.from(this@DataRekapKehadiranGuru)
+                                .inflate(R.layout.item_kehadiran_popup, container, false)
 
-        guru.getDataKehadiran().forEach { kehadiran ->
-            val itemView = LayoutInflater.from(this)
-                .inflate(R.layout.item_kehadiran_popup, container, false)
+                            itemView.findViewById<TextView>(R.id.tvTanggal).text = item.date
+                            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = "${item.schedule?.subjectInfo?.name ?: "Pelajaran"} / ${item.schedule?.classInfo?.name ?: "-"}"
+                            itemView.findViewById<TextView>(R.id.tvJam).text = "-" 
+                            itemView.findViewById<TextView>(R.id.tvStatus).text = item.status
+                            itemView.findViewById<TextView>(R.id.tvKeterangan).text = item.note ?: "-"
 
-            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.tanggal
-            itemView.findViewById<TextView>(R.id.tvMapelKelas).text =
-                "${kehadiran.mataPelajaran} / Kelas ${kehadiran.kelas}"
-            itemView.findViewById<TextView>(R.id.tvJam).text = kehadiran.jam
-            itemView.findViewById<TextView>(R.id.tvStatus).text = kehadiran.status
-            itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan
-
-            val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
-            when (kehadiran.status.lowercase()) {
-                "hadir" -> tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                "sakit" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
-                "izin" -> tvStatus.setTextColor(Color.parseColor("#2196F3"))
-                "alpha" -> tvStatus.setTextColor(Color.parseColor("#F44336"))
+                            val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
+                            when (item.status.lowercase()) {
+                                "hadir" -> { tvStatus.text = "Hadir"; tvStatus.setTextColor(Color.parseColor("#4CAF50")) }
+                                "late" -> { tvStatus.text = "Terlambat"; tvStatus.setTextColor(Color.parseColor("#FF9800")) }
+                                "sick" -> { tvStatus.text = "Sakit"; tvStatus.setTextColor(Color.parseColor("#FF9800")) }
+                                "excused" -> { tvStatus.text = "Izin"; tvStatus.setTextColor(Color.parseColor("#2196F3")) }
+                                "absent" -> { tvStatus.text = "Alpha"; tvStatus.setTextColor(Color.parseColor("#F44336")) }
+                            }
+                            container.addView(itemView)
+                        }
+                    }
+                }
             }
-
-            container.addView(itemView)
-        }
+            override fun onFailure(call: Call<List<TeachingAttendanceItem>>, t: Throwable) {
+                container.removeView(progressBar)
+                Toast.makeText(this@DataRekapKehadiranGuru, "Gagal memuat riwayat", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun setupSearch() {
         editTextSearch.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 filterData(s.toString().trim())
             }
-
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
 
-        val btnClear = findViewById<ImageButton>(R.id.imageButton12)
-        btnClear.setOnClickListener {
+        findViewById<ImageButton>(R.id.imageButton12).setOnClickListener {
             editTextSearch.text.clear()
-            editTextSearch.requestFocus()
-            adapter = GuruAdapterWaka(allGuruList) { guru ->
-                showPopupDetailGuru(guru)
-            }
-            recyclerView.adapter = adapter
-            Toast.makeText(this, "Menampilkan semua data", Toast.LENGTH_SHORT).show()
+            loadDataFromApi()
         }
     }
 
@@ -143,20 +163,12 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         } else {
             val lowercaseQuery = query.lowercase()
             allGuruList.filter { guru ->
-                guru.nama.lowercase().contains(lowercaseQuery) ||
-                        guru.nip.lowercase().contains(lowercaseQuery) ||
-                        guru.mataPelajaran.lowercase().contains(lowercaseQuery)
+                guru.name.lowercase().contains(lowercaseQuery) ||
+                        (guru.nip ?: "").lowercase().contains(lowercaseQuery) ||
+                        (guru.subjectName ?: "").lowercase().contains(lowercaseQuery)
             }
         }
-
-        adapter = GuruAdapterWaka(filteredList) { guru ->
-            showPopupDetailGuru(guru)
-        }
-        recyclerView.adapter = adapter
-
-        if (query.isNotEmpty() && filteredList.isEmpty()) {
-            Toast.makeText(this, "Tidak ditemukan guru dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
-        }
+        adapter.updateData(filteredList)
     }
 
     private fun setupAllNavigation() {
@@ -171,14 +183,11 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
 
     private fun setupBackButton() {
         val btnBack = findViewById<ImageButton>(R.id.btnBack)
-        btnBack.setOnClickListener {
-            navigateToDashboardWaka()
-        }
+        btnBack.setOnClickListener { navigateToDashboardWaka() }
     }
 
     private fun setupMoreVertButton() {
-        val btnMoreVert = findViewById<ImageButton>(R.id.imageButton20)
-        btnMoreVert.setOnClickListener { view ->
+        findViewById<ImageButton>(R.id.imageButton20).setOnClickListener { view ->
             val popupMenu = PopupMenu(this, view)
             popupMenu.menuInflater.inflate(R.menu.menu_data_rekap, popupMenu.menu)
 
@@ -201,22 +210,17 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
     }
 
     private fun setupHomeButton() {
-        val btnHome = findViewById<ImageButton>(R.id.imageButton2)
-        btnHome.setOnClickListener {
-            navigateToDashboardWaka()
-        }
+        findViewById<ImageButton>(R.id.imageButton2).setOnClickListener { navigateToDashboardWaka() }
     }
 
     private fun setupDataRekapButton() {
-        val btnDataRekap = findViewById<ImageButton>(R.id.imageButton3)
-        btnDataRekap.setOnClickListener {
+        findViewById<ImageButton>(R.id.imageButton3).setOnClickListener {
             Toast.makeText(this, "Sudah di halaman Data Rekap", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun setupJadwalButton() {
-        val btnJadwal = findViewById<ImageButton>(R.id.imageButton4)
-        btnJadwal.setOnClickListener {
+        findViewById<ImageButton>(R.id.imageButton4).setOnClickListener {
             try {
                 val intent = Intent(this, JadwalPembelajaranGuru::class.java)
                 startActivity(intent)
@@ -227,8 +231,7 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
     }
 
     private fun setupStatistikButton() {
-        val btnStatistik = findViewById<ImageButton>(R.id.imageButton5)
-        btnStatistik.setOnClickListener {
+        findViewById<ImageButton>(R.id.imageButton5).setOnClickListener {
             try {
                 val intent = Intent(this, StatistikWakaa::class.java)
                 startActivity(intent)
@@ -239,8 +242,7 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
     }
 
     private fun setupNotifikasiButton() {
-        val btnNotifikasi = findViewById<ImageButton>(R.id.imageButton6)
-        btnNotifikasi.setOnClickListener {
+        findViewById<ImageButton>(R.id.imageButton6).setOnClickListener {
             try {
                 val intent = Intent(this, NotifikasiSemuaWaka::class.java)
                 startActivity(intent)
@@ -250,17 +252,34 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         }
     }
 
-    private fun setupBackPressHandler() {
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                navigateToDashboardWaka()
-            }
-        })
-    }
-
     private fun navigateToDashboardWaka() {
         val intent = Intent(this, DashboardWaka::class.java)
         startActivity(intent)
         finish()
+    }
+
+    inner class GuruAdapterWaka(
+        private var list: List<TeacherItem>,
+        private val onClick: (TeacherItem) -> Unit
+    ) : RecyclerView.Adapter<GuruAdapterWaka.ViewHolder>() {
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tvNama: TextView = view.findViewById(R.id.tvNamaGuru) // Assuming ID from layout
+            val tvMapel: TextView = view.findViewById(R.id.tvMapel)
+        }
+        fun updateData(newList: List<TeacherItem>) {
+            list = newList
+            notifyDataSetChanged()
+        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_rekap_guru, parent, false)
+            return ViewHolder(view)
+        }
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = list[position]
+            holder.tvNama.text = item.name
+            holder.tvMapel.text = item.subjectName
+            holder.itemView.setOnClickListener { onClick(item) }
+        }
+        override fun getItemCount() = list.size
     }
 }

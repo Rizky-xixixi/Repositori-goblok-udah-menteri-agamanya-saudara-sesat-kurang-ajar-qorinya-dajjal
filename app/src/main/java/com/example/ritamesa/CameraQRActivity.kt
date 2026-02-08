@@ -180,12 +180,17 @@ class CameraQRActivity : AppCompatActivity() {
         val lat = lastLocation?.latitude
         val lng = lastLocation?.longitude
         
-        Log.d(TAG, "Sending scan request: token=$token, lat=$lat, lng=$lng")
+        // Retrieve device ID from session
+        val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
+        val deviceId = sessionManager.getDeviceId()
+        
+        Log.d(TAG, "Sending scan request: token=$token, lat=$lat, lng=$lng, deviceId=$deviceId")
 
         val request = ScanRequest(
             token = token,
             latitude = lat,
-            longitude = lng
+            longitude = lng,
+            deviceId = if (deviceId != 0) deviceId else null
         )
 
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)

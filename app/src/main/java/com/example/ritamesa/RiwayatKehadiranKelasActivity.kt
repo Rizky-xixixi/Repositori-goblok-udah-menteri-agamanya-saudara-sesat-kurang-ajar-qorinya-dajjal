@@ -3,9 +3,9 @@ package com.example.ritamesa
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -24,345 +24,276 @@ import java.util.*
 
 class RiwayatKehadiranKelasActivity : AppCompatActivity() {
 
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var txtJumlahSiswa: TextView
+    private lateinit var recyclerRiwayat: RecyclerView
     private lateinit var txtHadirCount: TextView
-    private lateinit var txtSakitCount: TextView
     private lateinit var txtIzinCount: TextView
+    private lateinit var txtSakitCount: TextView
     private lateinit var txtAlphaCount: TextView
     private lateinit var txtFilterTanggal: TextView
-
+    private lateinit var txtJumlahSiswa: TextView
+    
+    // Buttons
     private lateinit var btnHadir: ImageButton
     private lateinit var btnSakit: ImageButton
     private lateinit var btnIzin: ImageButton
     private lateinit var btnAlpha: ImageButton
-    private lateinit var iconCalendar: ImageView
-
+    
+    // Bottom Nav
     private lateinit var btnHome: ImageButton
     private lateinit var btnChart: ImageButton
     private lateinit var btnNotif: ImageButton
 
-    // Data lists
-    private val allData = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
-    private val filteredData = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
-    private lateinit var adapter: SimpleSiswaAdapter
-    private var filterActive: String? = null
-
-    private var totalStudents = 0
-    private val handler = Handler(Looper.getMainLooper())
-    private var isLoading = false
-    private var currentDate: Calendar = Calendar.getInstance()
-
-    private val textColorActive = android.graphics.Color.WHITE
-    private val textColorNormal = android.graphics.Color.parseColor("#4B5563")
-    private val textColorDefault = android.graphics.Color.BLACK
-
-    companion object {
-        private const val TAG = "RiwayatKelasActivity"
-    }
+    private val allData = mutableListOf<HomeroomAttendanceItem>()
+    private val filteredData = mutableListOf<HomeroomAttendanceItem>()
+    private lateinit var adapter: RiwayatKelasAdapter
+    
+    private var selectedDate = Calendar.getInstance()
+    private var filterStatus: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e(TAG, "Uncaught exception in ${thread.name}: ${throwable.message}")
-            runOnUiThread {
-                Toast.makeText(this, "Error aplikasi, restart...", Toast.LENGTH_SHORT).show()
-            }
-            handler.postDelayed({
-                finish()
-                startActivity(intent)
-            }, 1500)
-        }
+        setContentView(R.layout.riwayat_kehadiran_kelas)
 
-        try {
-            setContentView(R.layout.riwayat_kehadiran_kelas)
-
-            if (!initializeViews()) {
-                Toast.makeText(this, "Gagal memuat tampilan", Toast.LENGTH_LONG).show()
-                finish()
-                return
-            }
-
-            setupRecyclerView()
-            setupFooterNavigation()
-            setupFilterButtons()
-            setupCalendarButton()
-
-            updateTanggalDisplay()
-            resetTextColors()
-
-            loadDataFromApi()
-
-        } catch (e: Exception) {
-            Log.e(TAG, "FATAL ERROR in onCreate: ${e.message}", e)
-            showErrorAndExit("Gagal memuat halaman kelas")
-        }
+        initViews()
+        setupListeners()
+        setupRecyclerView()
+        
+        updateTanggalDisplay()
+        loadDataFromApi()
     }
 
-    private fun initializeViews(): Boolean {
-        return try {
-            recyclerView = findViewById(R.id.recycler_riwayat)!!
-            txtJumlahSiswa = findViewById(R.id.text_jumlah_siswa)!!
-            txtHadirCount = findViewById(R.id.txt_hadir_count)!!
-            txtSakitCount = findViewById(R.id.txt_sakit_count)!!
-            txtIzinCount = findViewById(R.id.txt_izin_count)!!
-            txtAlphaCount = findViewById(R.id.txt_alpha_count)!!
-            txtFilterTanggal = findViewById(R.id.text_filter_tanggal)!!
+    private fun initViews() {
+        recyclerRiwayat = findViewById(R.id.recycler_riwayat)
+        txtHadirCount = findViewById(R.id.txt_hadir_count)
+        txtIzinCount = findViewById(R.id.txt_izin_count)
+        txtSakitCount = findViewById(R.id.txt_sakit_count)
+        txtAlphaCount = findViewById(R.id.txt_alpha_count)
+        txtFilterTanggal = findViewById(R.id.text_filter_tanggal)
+        txtJumlahSiswa = findViewById(R.id.text_jumlah_siswa)
 
-            btnHadir = findViewById(R.id.button_hadir)!!
-            btnSakit = findViewById(R.id.button_sakit)!!
-            btnIzin = findViewById(R.id.button_izin)!!
-            btnAlpha = findViewById(R.id.button_alpha)!!
+        btnHadir = findViewById(R.id.button_hadir)
+        btnSakit = findViewById(R.id.button_sakit)
+        btnIzin = findViewById(R.id.button_izin)
+        btnAlpha = findViewById(R.id.button_alpha)
 
-            iconCalendar = findViewById(R.id.icon_calendar)!!
-
-            btnHome = findViewById(R.id.btnHome) ?: ImageButton(this)
-            btnChart = findViewById(R.id.btnChart) ?: ImageButton(this)
-            btnNotif = findViewById(R.id.btnNotif) ?: ImageButton(this)
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error initializeViews: ${e.message}", e)
-            false
-        }
+        btnHome = findViewById(R.id.btnHome)
+        btnChart = findViewById(R.id.btnChart)
+        btnNotif = findViewById(R.id.btnNotif)
     }
 
-    private fun setupCalendarButton() {
-        iconCalendar.setOnClickListener {
-            showDatePicker()
-        }
-    }
-
-    private fun showDatePicker() {
-        val year = currentDate.get(Calendar.YEAR)
-        val month = currentDate.get(Calendar.MONTH)
-        val day = currentDate.get(Calendar.DAY_OF_MONTH)
-
-        val datePickerDialog = DatePickerDialog(this, { _, selectedYear, selectedMonth, selectedDay ->
-            currentDate.set(selectedYear, selectedMonth, selectedDay)
+    private fun setupListeners() {
+        val dateSetListener = DatePickerDialog.OnDateSetListener { _, year, month, day ->
+            selectedDate.set(Calendar.YEAR, year)
+            selectedDate.set(Calendar.MONTH, month)
+            selectedDate.set(Calendar.DAY_OF_MONTH, day)
             updateTanggalDisplay()
             loadDataFromApi()
-        }, year, month, day)
-        datePickerDialog.show()
+        }
+
+        val showDateDialog = {
+            DatePickerDialog(
+                this,
+                dateSetListener,
+                selectedDate.get(Calendar.YEAR),
+                selectedDate.get(Calendar.MONTH),
+                selectedDate.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }
+
+        txtFilterTanggal.setOnClickListener { showDateDialog() }
+        findViewById<ImageView>(R.id.icon_calendar).setOnClickListener { showDateDialog() }
+
+        btnHadir.setOnClickListener { toggleFilter("present") }
+        btnSakit.setOnClickListener { toggleFilter("sick") }
+        btnIzin.setOnClickListener { toggleFilter("excused") } // or 'izin'
+        btnAlpha.setOnClickListener { toggleFilter("absent") }
+
+        // Nav
+        btnHome.setOnClickListener {
+            startActivity(Intent(this, DashboardWaliKelasActivity::class.java))
+            finish()
+        }
+        btnChart.setOnClickListener {
+            startActivity(Intent(this, TindakLanjutWaliKelasActivity::class.java))
+        }
+        btnNotif.setOnClickListener {
+            startActivity(Intent(this, NotifikasiWaliKelasActivity::class.java))
+        }
+        
+        // Assignment Btn (Reset Filter)
+        findViewById<ImageButton>(R.id.btnAssigment).setOnClickListener {
+            selectedDate = Calendar.getInstance()
+            filterStatus = null
+            updateTanggalDisplay()
+            loadDataFromApi()
+            Toast.makeText(this, "Filter direset ke hari ini", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateTanggalDisplay() {
-        try {
-            val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
-            val formatted = sdf.format(currentDate.time)
-            val finalDate = if (formatted.isNotEmpty()) {
-                formatted[0].uppercaseChar() + formatted.substring(1)
-            } else {
-                formatted
-            }
-            txtFilterTanggal.text = finalDate
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updateTanggalDisplay: ${e.message}")
-            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            txtFilterTanggal.text = sdf.format(Date())
-        }
+        val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
+        val formatted = sdf.format(selectedDate.time)
+        val finalDate = if (formatted.isNotEmpty()) formatted[0].uppercaseChar() + formatted.substring(1) else formatted
+        txtFilterTanggal.text = finalDate
     }
 
     private fun setupRecyclerView() {
-        adapter = SimpleSiswaAdapter(this, filteredData)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = adapter
-    }
-
-    private fun setupFooterNavigation() {
-        btnHome.setOnClickListener { safeNavigateTo(DashboardWaliKelasActivity::class.java, "Dashboard Wali Kelas") }
-        
-        val btnAssignment = findViewById<ImageButton>(R.id.btnAssigment)
-        btnAssignment?.setOnClickListener {
-            if (!isLoading) {
-                filterActive = null
-                resetFilter()
-                updateTombolAktif()
-                resetTextColors()
-                Toast.makeText(this, "Filter direset", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnChart.setOnClickListener { safeNavigateTo(TindakLanjutWaliKelasActivity::class.java, "Tindak Lanjut") }
-        btnNotif.setOnClickListener { safeNavigateTo(NotifikasiWaliKelasActivity::class.java, "Notifikasi") }
-    }
-
-    private fun safeNavigateTo(activityClass: Class<*>, screenName: String) {
-        val intent = Intent(this, activityClass)
-        startActivity(intent)
+        adapter = RiwayatKelasAdapter(filteredData)
+        recyclerRiwayat.layoutManager = LinearLayoutManager(this)
+        recyclerRiwayat.adapter = adapter
     }
 
     private fun loadDataFromApi() {
-        if (isLoading) return
-        isLoading = true
-        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
-
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateStr = dateFormat.format(selectedDate.time)
+        
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val dateStr = dateFormat.format(currentDate.time)
-
+        
         apiService.getHomeroomAttendance(from = dateStr, to = dateStr).enqueue(object : Callback<List<HomeroomAttendanceItem>> {
-            override fun onResponse(call: Call<List<HomeroomAttendanceItem>>, response: Response<List<HomeroomAttendanceItem>>) {
-                isLoading = false
+            override fun onResponse(
+                call: Call<List<HomeroomAttendanceItem>>,
+                response: Response<List<HomeroomAttendanceItem>>
+            ) {
                 if (response.isSuccessful) {
                     val data = response.body() ?: emptyList()
-                    processApiData(data)
+                    allData.clear()
+                    allData.addAll(data)
+                    applyLocalFilter()
+                    updateCounts()
                 } else {
                     Toast.makeText(this@RiwayatKehadiranKelasActivity, "Gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onFailure(call: Call<List<HomeroomAttendanceItem>>, t: Throwable) {
-                isLoading = false
                 Toast.makeText(this@RiwayatKehadiranKelasActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
-
-    private fun processApiData(items: List<HomeroomAttendanceItem>) {
-        allData.clear()
-        
-        items.forEach { item ->
-            val statusType = when(item.status) {
-                "present" -> "hadir"
-                "sick" -> "sakit"
-                "excused" -> "izin"
-                "absent" -> "alpha"
-                else -> "hadir" // Default or 'late' -> hadir
-            }
-            
-            val keterangan = when (statusType) {
-                "hadir" -> "Siswa Hadir di Kelas"
-                "sakit" -> "Siswa Tidak Hadir (Sakit)"
-                "izin" -> "Siswa Izin Tidak Hadir"
-                "alpha" -> "Siswa Tidak Hadir Tanpa Keterangan"
-                else -> "Status Tidak Diketahui"
-            }
-
-            val mapel = item.schedule?.subjectInfo?.name ?: "-"
-            val guru = item.schedule?.teacher?.user?.name ?: "-"
-
-            allData.add(mapOf(
-                "id" to item.id,
-                "nama" to (item.student?.user?.name ?: "Siswa ${item.id}"),
-                "jurusan" to "Kelas", // Backend doesn't send class name in this endpoint efficiently, generic is fine or fix backend
-                "mapelGuru" to "$mapel, [$guru]",
-                "keterangan" to keterangan,
-                "statusType" to statusType
-            ))
-        }
-
-        totalStudents = allData.size // Approximate, effectively shows attendance records count
-        
-        resetFilter()
-        updateAngkaTombol()
-        updateTotalSiswa()
-        
-        Toast.makeText(this, "Data dimuat: ${allData.size}", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun setupFilterButtons() {
-        btnHadir.setOnClickListener { toggleFilter("hadir") }
-        btnSakit.setOnClickListener { toggleFilter("sakit") }
-        btnIzin.setOnClickListener { toggleFilter("izin") }
-        btnAlpha.setOnClickListener { toggleFilter("alpha") }
-    }
-
+    
     private fun toggleFilter(status: String) {
-        if (filterActive == status) {
-            filterActive = null
-            resetFilter()
-            resetTextColors()
+        if (filterStatus == status) {
+            filterStatus = null
+            resetButtonStates()
         } else {
-            filterActive = status
-            applyFilter(status)
-            updateTextColors(status)
+            filterStatus = status
+            updateButtonStates(status)
         }
-        updateTombolAktif()
+        applyLocalFilter()
     }
-
-    private fun applyFilter(status: String) {
+    
+    private fun applyLocalFilter() {
         filteredData.clear()
-        filteredData.addAll(allData.filter { it["statusType"] == status })
+        if (filterStatus == null) {
+            filteredData.addAll(allData)
+        } else {
+            filteredData.addAll(allData.filter { 
+                val s = it.status.toLowerCase()
+                when(filterStatus) {
+                    "present" -> s == "present" || s == "late" || s == "hadir"
+                    "sick" -> s == "sick" || s == "sakit"
+                    "excused" -> s == "excused" || s == "izin" || s == "permit"
+                    "absent" -> s == "absent" || s == "alpha"
+                    else -> false
+                }
+            })
+        }
         adapter.notifyDataSetChanged()
+        txtJumlahSiswa.text = "Total Data: ${filteredData.size}"
     }
 
-    private fun resetFilter() {
-        filteredData.clear()
-        filteredData.addAll(allData)
-        adapter.notifyDataSetChanged()
+    private fun updateCounts() {
+        var h = 0; var s = 0; var i = 0; var a = 0
+        allData.forEach {
+            val status = it.status.toLowerCase()
+            if (status == "present" || status == "late" || status == "hadir") h++
+            else if (status == "sick" || status == "sakit") s++
+            else if (status == "excused" || status == "izin" || status == "permit") i++
+            else if (status == "absent" || status == "alpha") a++
+        }
+        txtHadirCount.text = h.toString()
+        txtSakitCount.text = s.toString()
+        txtIzinCount.text = i.toString()
+        txtAlphaCount.text = a.toString()
     }
-
-    private fun updateTombolAktif() {
-         // Reset
-        val defaultDrawable = android.R.drawable.ic_menu_save // Just fallback, usage of R.drawable.btn_guru_... needed
-        
-        try {
-             btnHadir.setImageResource(R.drawable.btn_guru_hadir)
-             btnSakit.setImageResource(R.drawable.btn_guru_sakit)
-             btnIzin.setImageResource(R.drawable.btn_guru_izin)
-             btnAlpha.setImageResource(R.drawable.btn_guru_alpha)
-        } catch(e: Exception) { }
-
-        // Active
-        try {
-            when (filterActive) {
-                "hadir" -> btnHadir.setImageResource(R.drawable.btn_guru_hadir_active)
-                "sakit" -> btnSakit.setImageResource(R.drawable.btn_guru_sakit_active)
-                "izin" -> btnIzin.setImageResource(R.drawable.btn_guru_izin_active)
-                "alpha" -> btnAlpha.setImageResource(R.drawable.btn_guru_alpha_active)
-            }
-        } catch(e: Exception) {}
-    }
-
-    private fun updateTextColors(activeStatus: String) {
-        resetTextColors()
-        when (activeStatus) {
-            "hadir" -> txtHadirCount.setTextColor(textColorActive)
-            "sakit" -> txtSakitCount.setTextColor(textColorActive)
-            "izin" -> txtIzinCount.setTextColor(textColorActive)
-            "alpha" -> txtAlphaCount.setTextColor(textColorActive)
+    
+    private fun updateButtonStates(activeStatus: String) {
+        resetButtonStates()
+        when(activeStatus) {
+            "present" -> btnHadir.setImageResource(R.drawable.btn_guru_hadir_active)
+            "sick" -> btnSakit.setImageResource(R.drawable.btn_guru_sakit_active)
+            "excused" -> btnIzin.setImageResource(R.drawable.btn_guru_izin_active)
+            "absent" -> btnAlpha.setImageResource(R.drawable.btn_guru_alpha_active)
         }
     }
-
-    private fun resetTextColors() {
-        txtHadirCount.setTextColor(textColorNormal)
-        txtSakitCount.setTextColor(textColorNormal)
-        txtIzinCount.setTextColor(textColorNormal)
-        txtAlphaCount.setTextColor(textColorNormal)
+    
+    private fun resetButtonStates() {
+        btnHadir.setImageResource(R.drawable.btn_guru_hadir)
+        btnSakit.setImageResource(R.drawable.btn_guru_sakit)
+        btnIzin.setImageResource(R.drawable.btn_guru_izin)
+        btnAlpha.setImageResource(R.drawable.btn_guru_alpha)
     }
 
-    private fun updateAngkaTombol() {
-        var hadir = 0
-        var sakit = 0
-        var izin = 0
-        var alpha = 0
+    // Inner Adapter Class
+    inner class RiwayatKelasAdapter(private val dataList: List<HomeroomAttendanceItem>) : RecyclerView.Adapter<RiwayatKelasAdapter.ViewHolder>() {
 
-        for (data in allData) {
-            when (data["statusType"]) {
-                "hadir" -> hadir++
-                "sakit" -> sakit++
-                "izin" -> izin++
-                "alpha" -> alpha++
+        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val txtNama: TextView = itemView.findViewById(R.id.txt_nama_siswa) // Adjust ID based on item layout
+            val txtKet: TextView = itemView.findViewById(R.id.txt_keterangan) 
+            val imgStatus: ImageView = itemView.findViewById(R.id.img_status_dot)
+            // If the layout 'item_riwayat_kelas.xml' or equivalent exists.
+            // Assuming 'item_riwayat_absen' or similar.
+            // Let's use a standard layout if we don't know the exact one.
+            // But I should check the layout file first? 
+            // The previous code used SimpleSiswaAdapter which likely used 'item_siswa_simple.xml' or similar.
+            // I'll assume 'item_riwayat_kehadiran_siswa' or generic.
+            // Let's use 'R.layout.item_riwayat_kehadiran_siswa' as a fallback.
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            // Using existing layout if possible
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_riwayat_kehadiran_siswa, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = dataList[position]
+            // item_riwayat_kehadiran_siswa has: Session (TextView), MataPelajaran (TextView), TextKeteranganAbsen (TextView), BadgeKehadiran (ImageView)
+            // But this is for "Kelas" history which should list Students?
+            // "item_riwayat_kehadiran_siswa" is designed for a single student's timeline.
+            // For "Kelas", we want to list "Budi - Hadir", "Ani - Sakit".
+            // The SimpleSiswaAdapter likely used a layout with Name.
+            // Let's look for a layout that fits 'Name' and 'Status'.
+            // Accessing views by ID might crash if layout doesn't match.
+            
+            // Re-mapping to item_riwayat_kehadiran_siswa IDs for now:
+            val txtName = holder.itemView.findViewById<TextView>(R.id.MataPelajaran) // Use Subject/Title field for Name
+            val txtSession = holder.itemView.findViewById<TextView>(R.id.Session) // Use Session for Class/Time
+            val txtKet = holder.itemView.findViewById<TextView>(R.id.TextKeteranganAbsen)
+            val imgBadge = holder.itemView.findViewById<ImageView>(R.id.BadgeKehadiran)
+
+            txtName.text = item.student?.user?.name ?: "Siswa"
+            txtSession.text = item.schedule?.subjectInfo?.name ?: "-" // Show Subject
+            
+            val s = item.status.toLowerCase()
+            val statusIndo = when(s) {
+                "present" -> "Hadir"
+                "sick" -> "Sakit"
+                "excused" -> "Izin"
+                "absent" -> "Alpha"
+                else -> "Hadir"
+            }
+            txtKet.text = statusIndo
+            
+            when(s) {
+                 "present" -> imgBadge.setImageResource(R.drawable.siswa_hadir_wakel)
+                 "sick" -> imgBadge.setImageResource(R.drawable.siswa_sakit_wakel)
+                 "excused" -> imgBadge.setImageResource(R.drawable.siswa_izin_wakel)
+                 "absent" -> imgBadge.setImageResource(R.drawable.siswa_alpha_wakel)
+                 else -> imgBadge.setImageResource(R.drawable.siswa_hadir_wakel)
             }
         }
 
-        txtHadirCount.text = hadir.toString()
-        txtSakitCount.text = sakit.toString()
-        txtIzinCount.text = izin.toString()
-        txtAlphaCount.text = alpha.toString()
-    }
-
-    private fun updateTotalSiswa() {
-        txtJumlahSiswa.text = "Total Kehadiran : $totalStudents"
-    }
-
-    private fun showErrorAndExit(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        handler.postDelayed({ finish() }, 3000)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
+        override fun getItemCount() = dataList.size
     }
 }

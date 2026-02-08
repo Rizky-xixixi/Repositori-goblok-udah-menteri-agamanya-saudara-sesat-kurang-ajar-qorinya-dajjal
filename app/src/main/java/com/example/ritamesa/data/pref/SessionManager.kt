@@ -11,6 +11,7 @@ class SessionManager(context: Context) {
         const val KEY_ROLE = "user_role"
         const val KEY_NAME = "user_name"
         const val KEY_ID = "user_id"
+        const val KEY_DEVICE_ID = "device_id"
         const val KEY_IS_LOGGED_IN = "is_logged_in"
     }
 
@@ -37,6 +38,14 @@ class SessionManager(context: Context) {
             .apply()
     }
 
+    fun saveDeviceId(deviceId: Int) {
+        prefs.edit().putInt(KEY_DEVICE_ID, deviceId).apply()
+    }
+
+    fun getDeviceId(): Int {
+        return prefs.getInt(KEY_DEVICE_ID, 0)
+    }
+
     fun savePhotoUrl(url: String?) {
         prefs.edit().putString(KEY_PHOTO_URL, url).apply()
     }
@@ -57,12 +66,7 @@ class SessionManager(context: Context) {
         prefs.edit().clear().apply()
     }
 
-    companion object {
-        const val KEY_TOKEN = "auth_token"
-        const val KEY_ROLE = "user_role"
-        const val KEY_NAME = "user_name"
-        const val KEY_ID = "user_id"
-        const val KEY_IS_LOGGED_IN = "is_logged_in"
-        const val KEY_PHOTO_URL = "photo_url"
+    fun clearSession() {
+        prefs.edit().clear().apply()
     }
 }

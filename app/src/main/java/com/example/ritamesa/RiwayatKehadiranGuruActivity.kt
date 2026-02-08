@@ -46,7 +46,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
     private val filteredData = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
     private lateinit var adapter: SimpleGuruAdapter
     private var filterActive: String? = null
-    private var dateFilterActive: Boolean = false
+    private var dateFilterActive = true // Default aktif filter tanggal saat membuka halaman
 
     private val handler = Handler(Looper.getMainLooper())
     private var isLoading = false
@@ -66,7 +66,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
 
         try {
             setContentView(R.layout.riwayat_kehadiran_guru_fix)
-            
+
             if (!initializeViews()) {
                 Toast.makeText(this, "Gagal memuat tampilan", Toast.LENGTH_LONG).show()
                 finish()
@@ -81,7 +81,10 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
             updateTanggalDisplay()
             resetTextColors()
 
-            handler.postDelayed({ loadDataFromApi() }, 300)
+            handler.postDelayed({
+                loadDataFromApi()
+                Toast.makeText(this, "Memuat data untuk tanggal terbaru...", Toast.LENGTH_SHORT).show()
+            }, 300)
 
         } catch (e: Exception) {
             Log.e(TAG, "FATAL ERROR in onCreate: ${e.message}", e)
@@ -134,7 +137,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
                 dateFilterActive = true
                 updateTanggalDisplay()
                 applyDateFilter()
-                
+
                 // Reset status filter but keep date filter
                 filterActive = null
                 updateTombolAktif()
@@ -164,14 +167,12 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         val tempFilteredData = allData.filter {
             val tanggal = it["tanggal"] as? String ?: ""
             // Check if date string contains the selected date (dd-MM-yyyy)
-            // Backend date might be yyyy-MM-dd. Need to handle mapping correctly in loadDataFromApi
-            // In loadDataFromApi I map it to "dd-MM-yyyy HH:mm" for UI
             tanggal.contains(selectedDateStr)
         }
 
         filteredData.clear()
         filteredData.addAll(tempFilteredData)
-        
+
         if (filterActive != null) {
             applyFilter(filterActive!!)
         } else {
@@ -179,9 +180,12 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         }
 
         updateAngkaTombol()
-        
+
         val itemCount = filteredData.size
-        Toast.makeText(this, "Menampilkan $itemCount data", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this,
+            if (itemCount > 0) "Menampilkan $itemCount data untuk $selectedDateStr"
+            else "Tidak ada data untuk $selectedDateStr",
+            Toast.LENGTH_SHORT).show()
     }
 
     private fun setupRecyclerView() {
@@ -195,18 +199,18 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
             startActivity(Intent(this, DashboardGuruActivity::class.java))
             finish()
         }
-        
+
         val btnAssignment = findViewById<ImageButton>(R.id.btnAssigment)
         btnAssignment?.setOnClickListener {
-            // Reset filters
+            // Reset filters tapi tetap aktifkan filter tanggal
             filterActive = null
-            dateFilterActive = false
+            dateFilterActive = true
             selectedDate = Calendar.getInstance()
             updateTanggalDisplay()
-            resetFilter()
+            applyDateFilter() // Langsung apply filter tanggal
             updateTombolAktif()
             resetTextColors()
-            Toast.makeText(this, "Filter direset", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Filter direset, menampilkan data hari ini", Toast.LENGTH_SHORT).show()
         }
 
         btnChart.setOnClickListener {
@@ -228,7 +232,6 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
     private fun loadDataFromApi() {
         if (isLoading) return
         isLoading = true
-        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
 
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         apiService.getTeachingHistory().enqueue(object : Callback<List<TeachingAttendanceItem>> {
@@ -254,7 +257,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
 
     private fun processApiData(items: List<TeachingAttendanceItem>) {
         allData.clear()
-        
+
         val outputFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
         val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
@@ -285,20 +288,10 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         // Sort by date desc
         allData.sortByDescending { it["tanggal"] as String }
 
-        // Initial filter: Show Today? Or Show All?
-        // Let's show All initially or Today depending on design preference.
-        // Existing code showed today. Let's show today initially if dateFilterActive is false, 
-        // BUT wait, resetFilter() normally shows ALL if dateFilterActive is false.
-        // Let's default to SHOW ALL effectively, or show today?
-        // Let's show Today to match previous behavior
-        
-        // Actually, best to show ALL if no filter active, but defaulting to Today is often good for attendance.
-        // Let's default to Today.
-        dateFilterActive = true
-        updateTanggalDisplay()
+        // Otomatis filter untuk tanggal saat ini (hari ini)
         applyDateFilter()
-        
-        Toast.makeText(this, "Data dimuat: ${allData.size} item", Toast.LENGTH_SHORT).show()
+
+        Toast.makeText(this, "Data riwayat guru untuk ${txtFilterTanggal.text} dimuat", Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleFilter(status: String) {
@@ -316,18 +309,18 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
 
     private fun applyFilter(status: String) {
         filteredData.clear()
-        
+
         if (dateFilterActive) {
             val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
             val selectedDateStr = dateFormat.format(selectedDate.time)
-            
+
             filteredData.addAll(allData.filter {
                 val sType = it["statusType"] as String
                 val tanggal = it["tanggal"] as String
                 sType == status && tanggal.contains(selectedDateStr)
             })
         } else {
-             filteredData.addAll(allData.filter { it["statusType"] == status })
+            filteredData.addAll(allData.filter { it["statusType"] == status })
         }
         adapter.notifyDataSetChanged()
         updateAngkaTombolForFilter(status)
@@ -336,19 +329,18 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
     private fun resetFilter() {
         filteredData.clear()
         if (dateFilterActive) {
-             val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-             val selectedDateStr = dateFormat.format(selectedDate.time)
-             filteredData.addAll(allData.filter { (it["tanggal"] as String).contains(selectedDateStr) })
+            // Gunakan applyDateFilter() untuk konsistensi
+            applyDateFilter()
         } else {
-             filteredData.addAll(allData)
+            filteredData.addAll(allData)
+            adapter.notifyDataSetChanged()
+            updateAngkaTombol()
         }
-        adapter.notifyDataSetChanged()
-        updateAngkaTombol()
     }
 
     private fun updateAngkaTombol() {
         var h = 0; var s = 0; var i = 0; var a = 0
-        filteredData.forEach { 
+        filteredData.forEach {
             when(it["statusType"]) {
                 "hadir" -> h++
                 "sakit" -> s++
@@ -361,30 +353,44 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         txtIzinCount.text = i.toString()
         txtAlphaCount.text = a.toString()
     }
-    
+
     private fun updateAngkaTombolForFilter(activeStatus: String) {
         // Calculate totals for the CURRENT SCOPE (Date) regardless of status filter
-        val sourceData = if (dateFilterActive) {
-             val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-             val selectedDateStr = dateFormat.format(selectedDate.time)
-             allData.filter { (it["tanggal"] as String).contains(selectedDateStr) }
-        } else {
-             allData
-        }
-        
+        val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
+        val selectedDateStr = dateFormat.format(selectedDate.time)
+
         var h = 0; var s = 0; var i = 0; var a = 0
-        sourceData.forEach { 
-            when(it["statusType"]) {
-                "hadir" -> h++
-                "sakit" -> s++
-                "izin" -> i++
-                "alpha" -> a++
+        allData.forEach {
+            val tanggal = it["tanggal"] as? String ?: ""
+            if (tanggal.contains(selectedDateStr)) {
+                when(it["statusType"]) {
+                    "hadir" -> h++
+                    "sakit" -> s++
+                    "izin" -> i++
+                    "alpha" -> a++
+                }
             }
         }
+
         txtHadirCount.text = h.toString()
         txtSakitCount.text = s.toString()
         txtIzinCount.text = i.toString()
         txtAlphaCount.text = a.toString()
+
+        // Tampilkan informasi filter
+        val itemCount = filteredData.size
+        val statusText = when (activeStatus) {
+            "hadir" -> "hadir"
+            "sakit" -> "sakit"
+            "izin" -> "izin"
+            "alpha" -> "alpha"
+            else -> ""
+        }
+        Toast.makeText(
+            this,
+            "Menampilkan $itemCount data $statusText untuk $selectedDateStr",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun updateTombolAktif() {

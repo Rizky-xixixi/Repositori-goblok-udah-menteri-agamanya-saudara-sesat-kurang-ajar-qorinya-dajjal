@@ -82,24 +82,8 @@ class NotifikasiSemua : AppCompatActivity() {
     private var filterKelasJurusan = "Semua Kelas"
     private var isFilterSemuaActive = true
 
-    // ===== DUMMY DATA DENGAN KELAS/JURUSAN =====
-    private val semuaNotifikasi = listOf(
-        NotifikasiItem(1, "Pak Ahmad", "Hadir tepat waktu", "Matematika", "07:30", "tepat_waktu", "guru", 1, "XII RPL 1"),
-        NotifikasiItem(2, "Bu Siti", "Terlambat 15 menit", "Bahasa Inggris", "09:15", "terlambat", "guru", 2, "XII TKJ 2"),
-        NotifikasiItem(3, "XII Mekatronika 1", "3 siswa alpha", "Fisika", "11:00", "alpha", "siswa", 3, "XII Mekatronika 1"),
-        NotifikasiItem(4, "Andi Wijaya", "Sakit dengan surat dokter", "XII RPL 2", "08:45", "sakit", "siswa", 2, "XII RPL 2"),
-        NotifikasiItem(5, "Pak Budi", "Hadir tepat waktu", "Kimia", "07:30", "tepat_waktu", "guru", 1, "XII IPA 1"),
-        NotifikasiItem(6, "Citra Dewi", "Izin keluarga", "XII IPS 2", "10:30", "alpha", "siswa", 4, "XII IPS 2"),
-        NotifikasiItem(7, "Dewi Lestari", "Sakit panas", "XII RPL 3", "10:45", "sakit", "siswa", 4, "XII RPL 3"),
-        NotifikasiItem(8, "Pak Eko", "Hadir tepat waktu", "Pemrograman", "07:30", "tepat_waktu", "guru", 1, "XII RPL 2"),
-        NotifikasiItem(9, "Fajar Ramadan", "Terlambat 20 menit", "XII TKJ 1", "08:50", "terlambat", "siswa", 2, "XII TKJ 1"),
-        NotifikasiItem(10, "Sistem", "Rapor kehadiran tersedia", "Bulan Desember 2024", "16:30", "rapor", "guru", 7, "Semua Kelas"),
-        NotifikasiItem(11, "Pak Farhan", "Hadir tepat waktu", "Matematika", "07:30", "tepat_waktu", "guru", 1, "XI RPL 1"),
-        NotifikasiItem(12, "XI RPL 2", "2 siswa terlambat", "Bahasa Indonesia", "08:15", "terlambat", "siswa", 2, "XI RPL 2"),
-        NotifikasiItem(13, "Bu Gita", "Sakit", "Kimia", "09:45", "sakit", "guru", 3, "XII IPA 2"),
-        NotifikasiItem(14, "X RPL 1", "1 siswa alpha", "Matematika", "10:30", "alpha", "siswa", 4, "X RPL 1"),
-        NotifikasiItem(15, "Pak Hasan", "Hadir tepat waktu", "Pemrograman", "07:30", "tepat_waktu", "guru", 1, "X RPL 3")
-    )
+    // ===== DATA NOTIFIKASI DARI API =====
+    private val semuaNotifikasi = mutableListOf<NotifikasiItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,7 +95,62 @@ class NotifikasiSemua : AppCompatActivity() {
         setupFooterNavigation()
         setupDateFilter()
         setupJenisFilter()
-        filterData()
+        
+        fetchNotifications()
+    }
+
+    private fun fetchNotifications() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        apiService.getNotifications().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.NotificationResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.NotificationResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.NotificationResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val data = response.body()?.notifications ?: emptyList()
+                    semuaNotifikasi.clear()
+                    
+                     val mappedList = data.map { item ->
+                        // Parse detail for ClassName and JamKe
+                        var parsedJamKe = 0
+                        var parsedKelas = "-"
+                        
+                        try {
+                            if (item.detail.contains("Jam ke-")) {
+                                val jamPart = item.detail.substringAfter("Jam ke-").substringBefore(")")
+                                parsedJamKe = jamPart.toIntOrNull() ?: 0
+                            }
+                            
+                            if (item.detail.contains(" - ")) {
+                                parsedKelas = item.detail.substringBefore(" - ").trim()
+                            } else {
+                                parsedKelas = item.detail
+                            }
+                        } catch (e: Exception) { }
+
+                        NotifikasiItem(
+                            id = item.id.hashCode(), 
+                            nama = "Sistem", 
+                            pesan = item.message,
+                            detail = item.detail,
+                            waktu = item.time,
+                            tipe = item.type,
+                            kategori = if (item.type == "dinas" || item.type == "tepat_waktu" || item.type == "terlambat" && item.message.contains("Anda")) "guru" else "siswa",
+                            jamKe = parsedJamKe,
+                            kelasJurusan = parsedKelas 
+                        )
+                    }
+                    semuaNotifikasi.addAll(mappedList)
+                    filterData()
+                } else {
+                    Toast.makeText(this@NotifikasiSemua, "Gagal memuat notifikasi", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.NotificationResponse>, t: Throwable) {
+                Toast.makeText(this@NotifikasiSemua, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun initViews() {

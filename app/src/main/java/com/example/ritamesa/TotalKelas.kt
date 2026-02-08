@@ -51,6 +51,8 @@ class TotalKelas : AppCompatActivity() {
         editTextSearch.hint = "Cari nama kelas"
     }
 
+    private val majorsForDropdown = ArrayList<com.example.ritamesa.Jurusan>()
+
     private fun setupRecyclerView() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.setHasFixedSize(true)
@@ -58,12 +60,10 @@ class TotalKelas : AppCompatActivity() {
         kelasAdapter = KelasAdapter(
             listKelasDisplay,
             onEditClickListener = { kelas ->
-                Toast.makeText(this, "Edit fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
-                // showEditDialog(kelas, listKelasDisplay.indexOf(kelas))
+                showEditDialog(kelas)
             },
             onDeleteClickListener = { kelas ->
-                Toast.makeText(this, "Hapus fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
-                // showDeleteConfirmation(kelas, listKelasDisplay.indexOf(kelas))
+                showDeleteConfirmation(kelas)
             }
         )
         recyclerView.adapter = kelasAdapter
@@ -71,7 +71,6 @@ class TotalKelas : AppCompatActivity() {
     
     private fun fetchKelasData() {
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
-        Toast.makeText(this, "Memuat data kelas...", Toast.LENGTH_SHORT).show()
         
         apiService.getClasses().enqueue(object : Callback<List<ClassItem>> {
             override fun onResponse(call: Call<List<ClassItem>>, response: Response<List<ClassItem>>) {
@@ -94,7 +93,6 @@ class TotalKelas : AppCompatActivity() {
                     listKelasDisplay.addAll(mappedClasses)
                     
                     kelasAdapter.updateData(listKelasDisplay)
-                    Toast.makeText(this@TotalKelas, "Data berhasil dimuat: ${mappedClasses.size} kelas", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this@TotalKelas, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
                 }
@@ -107,6 +105,19 @@ class TotalKelas : AppCompatActivity() {
         })
     }
 
+    private fun fetchMajorsForDropdown() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        apiService.getMajors().enqueue(object : Callback<com.example.ritamesa.data.model.MajorResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.MajorResponse>, response: Response<com.example.ritamesa.data.model.MajorResponse>) {
+                if (response.isSuccessful && response.body() != null) {
+                    majorsForDropdown.clear()
+                    majorsForDropdown.addAll(response.body()!!.data)
+                }
+            }
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.MajorResponse>, t: Throwable) {}
+        })
+    }
+
     private fun setupActions() {
         // BUTTON BACK
         findViewById<View>(R.id.imageView36).setOnClickListener {
@@ -116,8 +127,7 @@ class TotalKelas : AppCompatActivity() {
         // BUTTON TAMBAH
         val btnTambah = findViewById<LinearLayout>(R.id.imageButton23)
         btnTambah.setOnClickListener {
-            Toast.makeText(this, "Fitur Tambah belum tersedia untuk API", Toast.LENGTH_SHORT).show()
-            // showAddDialog()
+            showAddDialog()
         }
 
         // BUTTON SEARCH
@@ -135,48 +145,198 @@ class TotalKelas : AppCompatActivity() {
                 false
             }
         }
+        
+        fetchMajorsForDropdown()
     }
 
-    private fun searchKelas() {
-        val query = editTextSearch.text.toString().trim()
-        val filteredList = if (query.isEmpty()) {
-            listKelasRaw
-        } else {
-            listKelasRaw.filter {
-                it.namaJurusan.contains(query, true) ||
-                        it.namaKelas.contains(query, true) ||
-                        it.waliKelas.contains(query, true)
-            }
-        }
-
-        if (filteredList.isEmpty() && query.isNotEmpty()) {
-            Toast.makeText(this, "Tidak ditemukan kelas dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
-        }
-
-        listKelasDisplay.clear()
-        listKelasDisplay.addAll(filteredList)
-        kelasAdapter.updateData(listKelasDisplay)
-    }
-
-    // Dialog methods commented out for now
-    
     private fun showAddDialog() {
-         // Local add logic
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.pop_up_tambah_kelas)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val etJurusan = dialog.findViewById<EditText>(R.id.input_keterangan_nama)
+        val etKelas = dialog.findViewById<EditText>(R.id.input_keterangan_nisn)
+        val arrowJurusan = dialog.findViewById<ImageButton>(R.id.arrowJurusan)
+        val arrowKelas = dialog.findViewById<ImageButton>(R.id.imageButton9)
+        val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
+        val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
+
+        var selectedMajorId: Int? = null
+
+        arrowJurusan.setOnClickListener {
+            val names = majorsForDropdown.map { it.KonsentrasiKeahlian }.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle("Pilih Jurusan")
+                .setItems(names) { _, which ->
+                    val major = majorsForDropdown[which]
+                    etJurusan.setText(major.KonsentrasiKeahlian)
+                    selectedMajorId = major.id
+                }
+                .show()
+        }
+
+        arrowKelas.setOnClickListener {
+            val kelasNames = mutableListOf<String>()
+            for (t in listTingkatan) {
+                for (r in listRombel) {
+                    kelasNames.add("$t $r")
+                }
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Pilih Kelas")
+                .setItems(kelasNames.toTypedArray()) { _, which ->
+                    etKelas.setText(kelasNames[which])
+                }
+                .show()
+        }
+
+        btnBatal.setOnClickListener { dialog.dismiss() }
+
+        btnSimpan.setOnClickListener {
+            val classStr = etKelas.text.toString().trim()
+            if (classStr.isEmpty() || selectedMajorId == null) {
+                Toast.makeText(this, "Jurusan dan Kelas harus diisi", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val parts = classStr.split(" ")
+            val grade = parts[0]
+            val label = if (parts.size > 1) parts[1] else "-"
+
+            createClass(grade, label, selectedMajorId!!, dialog)
+        }
+
+        dialog.show()
     }
 
-    private fun showJurusanDropdown(dialog: Dialog, etJurusan: EditText) {
-         // Local dropdown logic
+    private fun createClass(grade: String, label: String, majorId: Int, dialog: Dialog) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        val request = com.example.ritamesa.data.model.CreateClassRequest(grade, label, majorId)
+
+        apiService.createClass(request).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalKelas, "Kelas berhasil ditambahkan", Toast.LENGTH_SHORT).show()
+                    fetchKelasData()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this@TotalKelas, "Gagal menambah kelas", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalKelas, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    private fun showKelasDropdown(dialog: Dialog, etKelas: EditText) {
-         // Local dropdown logic
+    private fun showEditDialog(kelas: Kelas) {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.pop_up_edit_kelas)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val etJurusan = dialog.findViewById<EditText>(R.id.input_keterangan_nama)
+        val etKelas = dialog.findViewById<EditText>(R.id.input_keterangan_nisn)
+        val arrowJurusan = dialog.findViewById<ImageButton>(R.id.arrowJurusan)
+        val arrowKelas = dialog.findViewById<ImageButton>(R.id.imageButton9)
+        val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
+        val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
+
+        etJurusan.setText(kelas.namaJurusan)
+        etKelas.setText(kelas.namaKelas)
+
+        var selectedMajorId: Int? = majorsForDropdown.find { it.KonsentrasiKeahlian == kelas.namaJurusan }?.id
+
+        arrowJurusan.setOnClickListener {
+            val names = majorsForDropdown.map { it.KonsentrasiKeahlian }.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle("Pilih Jurusan")
+                .setItems(names) { _, which ->
+                    val major = majorsForDropdown[which]
+                    etJurusan.setText(major.KonsentrasiKeahlian)
+                    selectedMajorId = major.id
+                }
+                .show()
+        }
+
+        arrowKelas.setOnClickListener {
+            val kelasNames = mutableListOf<String>()
+            for (t in listTingkatan) {
+                for (r in listRombel) {
+                    kelasNames.add("$t $r")
+                }
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Pilih Kelas")
+                .setItems(kelasNames.toTypedArray()) { _, which ->
+                    etKelas.setText(kelasNames[which])
+                }
+                .show()
+        }
+
+        btnBatal.setOnClickListener { dialog.dismiss() }
+
+        btnSimpan.setOnClickListener {
+            val classStr = etKelas.text.toString().trim()
+            if (classStr.isEmpty() || selectedMajorId == null) {
+                Toast.makeText(this, "Jurusan dan Kelas harus diisi", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val parts = classStr.split(" ")
+            val grade = parts[0]
+            val label = if (parts.size > 1) parts[1] else "-"
+
+            updateClass(kelas.id, grade, label, selectedMajorId!!, dialog)
+        }
+
+        dialog.show()
     }
 
-    private fun showEditDialog(kelas: Kelas, position: Int) {
-         // Local edit logic
+    private fun updateClass(id: Int, grade: String, label: String, majorId: Int, dialog: Dialog) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        val request = com.example.ritamesa.data.model.CreateClassRequest(grade, label, majorId)
+
+        apiService.updateClass(id, request).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalKelas, "Kelas berhasil diperbarui", Toast.LENGTH_SHORT).show()
+                    fetchKelasData()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this@TotalKelas, "Gagal memperbarui kelas", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalKelas, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    private fun showDeleteConfirmation(kelas: Kelas, position: Int) {
-         // Local delete logic
+    private fun showDeleteConfirmation(kelas: Kelas) {
+        AlertDialog.Builder(this)
+            .setTitle("Hapus Kelas")
+            .setMessage("Apakah Anda yakin ingin menghapus kelas ${kelas.namaKelas}?")
+            .setPositiveButton("Hapus") { _, _ ->
+                deleteClass(kelas.id)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteClass(id: Int) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        apiService.deleteClass(id).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalKelas, "Kelas berhasil dihapus", Toast.LENGTH_SHORT).show()
+                    fetchKelasData()
+                } else {
+                    Toast.makeText(this@TotalKelas, "Gagal menghapus kelas", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalKelas, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 }

@@ -45,23 +45,9 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var runnable: Runnable
 
-    // Adapter lists
-    private val jadwalList = mutableListOf<JadwalItem>()
-    // Riwayat list (using RiwayatAbsenItem from dummy for now, needs real data if available from API?)
-    // API returns attendance summary and Today's schedule. 
-    // It does NOT return recent attendance history list in dashboard layout (Step 530 DashboardController::homeroomDashboard).
-    // It returns 'attendance_summary' counts.
-    // DashboardWaliKelasActivity layout has `recyclerJadwal1` (Riwayat).
-    // If API doesn't provide list, I might need another endpoint call `getHomeroomAttendance()`?
-    // Or just Hide it?
-    // DashboardController::homeroomDashboard DOES provide `attendance_summary` (counts).
-    // It does NOT provide a list of recent attendance.
-    // `TeacherController::myHomeroomAttendance` provides list. 
-    // I can call TWO endpoints. Or just leave Riwayat empty for now?
-    // User requested "implement dashboard".
-    // I'll call `getHomeroomDashboard` for top stats and schedule.
-    // For Riwayat/Recent, I can use dummy or leave empty. 
-    // Given complexity, let's just implement top stats and schedule first.
+    // Riwayat list
+    private val riwayatList = mutableListOf<RiwayatAbsenItem>()
+    private lateinit var riwayatAdapter: RiwayatAbsenAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,11 +58,10 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
         setupFooterNavigation()
         setupKehadiranButtons()
         
-        // Setup RecyclerViews
         setupRecyclerView()
 
-        // Load Data
         loadDataFromApi()
+        fetchHomeroomAttendance()
         
         val profileButton = findViewById<ImageButton>(R.id.profile)
         profileButton.setOnClickListener { view ->
@@ -141,14 +126,54 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         // Schedule Adapter
         val jadwalAdapter = JadwalAdapter(jadwalList) { jadwal ->
-           // Navigate to detail?
+            val intent = Intent(this, DetailJadwalWakelActivity::class.java)
+            val jadwalData = DashboardGuruActivity.JadwalData(
+                id = jadwal.id,
+                mataPelajaran = jadwal.mataPelajaran,
+                kelas = jadwal.kelas ?: "-",
+                jam = jadwal.jam,
+                classId = jadwal.classId ?: -1
+            )
+            intent.putExtra("JADWAL_DATA", jadwalData)
+            startActivity(intent)
         }
         recyclerJadwal.layoutManager = LinearLayoutManager(this)
         recyclerJadwal.adapter = jadwalAdapter
         recyclerJadwal.setHasFixedSize(true)
 
-        // Riwayat Adapter (Empty for now)
-        // recyclerRiwayat.layoutManager = LinearLayoutManager(this)
+        // Riwayat Adapter
+        riwayatAdapter = RiwayatAbsenAdapter(riwayatList)
+        recyclerRiwayat.layoutManager = LinearLayoutManager(this)
+        recyclerRiwayat.adapter = riwayatAdapter
+        recyclerRiwayat.setHasFixedSize(true)
+    }
+
+    private fun fetchHomeroomAttendance() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        // Get today's attendance for homeroom students
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        
+        apiService.getHomeroomAttendance(from = today, to = today).enqueue(object : Callback<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>> {
+            override fun onResponse(call: Call<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>>, response: Response<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>>) {
+                if (response.isSuccessful && response.body() != null) {
+                    val data = response.body()!!
+                    riwayatList.clear()
+                    data.take(5).forEach { item ->
+                        riwayatList.add(
+                            RiwayatAbsenItem(
+                                namaSiswa = item.student.user.name,
+                                jurusan = item.student.major.name,
+                                tanggal = item.date,
+                                waktu = item.time ?: "-",
+                                status = item.status
+                            )
+                        )
+                    }
+                    riwayatAdapter.notifyDataSetChanged()
+                }
+            }
+            override fun onFailure(call: Call<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>>, t: Throwable) {}
+        })
     }
 
     private fun loadDataFromApi() {

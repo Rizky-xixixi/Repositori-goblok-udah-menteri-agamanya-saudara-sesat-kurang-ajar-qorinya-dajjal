@@ -136,32 +136,72 @@ class LoginLanjut : AppCompatActivity() {
     private fun saveSessionAndNavigate(response: com.example.ritamesa.data.model.LoginResponse) {
         val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
         sessionManager.saveAuthToken(response.access_token)
-        sessionManager.saveUserRole(response.user.role)
+        sessionManager.saveUserRole(response.user.role) // Uses mapped role from User model
         sessionManager.saveUserDetails(response.user.id.toString(), response.user.name)
         sessionManager.savePhotoUrl(response.user.profile?.photoUrl)
         sessionManager.setLoggedIn(true)
 
         Toast.makeText(this, "Login berhasil sebagai ${response.user.role}", Toast.LENGTH_SHORT).show()
 
-        // Sesuaikan navigasi dengan role dari backend
-        // Backend roles: admin, teacher, student
+        // Backend mapping: admin, teacher, student
         when (response.user.role) {
             "admin" -> navigateToAdminDashboard()
             "teacher" -> {
-                 // Cek selectedRole dari halaman sebelumnya untuk membedakan Guru/Wali/Waka
-                 // atau biarkan user memilih dashboard?
-                 // Untuk simplifikasi, kita arahkan ke Dashboard Guru dulu
-                 // Nanti bisa dikembangkan logika Waka/WaliKelas jika backend support role detail
                  if (selectedRole == "Wali Kelas") navigateToWaliKelasDashboard()
                  else if (selectedRole == "Waka") navigateToWakaDashboard()
                  else navigateToGuruDashboard()
             }
             "student" -> {
-                 val isPengurus = selectedRole == "Pengurus" // Atau cek dari response jika ada flag pengurus
-                 navigateToSiswaDashboard(isPengurus)
+                 // REGISTER DEVICE FIRST
+                 registerDeviceAndNavigate(response.user.name)
             }
             else -> Toast.makeText(this, "Role tidak dikenali: ${response.user.role}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun registerDeviceAndNavigate(userName: String) {
+        val deviceId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+        val deviceName = android.os.Build.MODEL
+        
+        val request = com.example.ritamesa.data.model.DeviceRequest(
+            identifier = deviceId,
+            name = "$deviceName ($userName)",
+            platform = "Android"
+        )
+
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        // Show loading
+        Toast.makeText(this, "Mendaftarkan perangkat...", Toast.LENGTH_SHORT).show()
+
+        apiService.registerDevice(request).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.Device> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.Device>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.Device>
+            ) {
+                if (response.isSuccessful) {
+                    val device = response.body()
+                    if (device != null) {
+                        // SAVE DEVICE ID
+                        val sessionManager = com.example.ritamesa.data.pref.SessionManager(this@LoginLanjut)
+                        sessionManager.saveDeviceId(device.id)
+                        Log.d(TAG, "Device registered: ${device.id}")
+                        
+                        val isPengurus = selectedRole == "Pengurus"
+                        navigateToSiswaDashboard(isPengurus)
+                    } else {
+                        Toast.makeText(this@LoginLanjut, "Gagal registrasi device: Respon kosong", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Toast.makeText(this@LoginLanjut, "Gagal registrasi device: ${response.message()}", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.Device>, t: Throwable) {
+                Toast.makeText(this@LoginLanjut, "Error registrasi device: ${t.message}", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Device reg error", t)
+            }
+        })
     }
 
     // Fungsi navigasi tetap sama seperti sebelumnya

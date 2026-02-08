@@ -8,9 +8,14 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.SchoolAttendanceResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,7 +35,7 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
 
     // ===== ADAPTER =====
     inner class KehadiranAdapter(
-        private val listKehadiran: List<KehadiranItem>
+        private var listKehadiran: List<KehadiranItem>
     ) : RecyclerView.Adapter<KehadiranAdapter.ViewHolder>() {
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -41,6 +46,11 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
             val textStatus: TextView = view.findViewById(R.id.text_status)
             val textKeterangan: TextView = view.findViewById(R.id.text_keterangan)
             val rootView: View = view.findViewById(R.id.root_item)
+        }
+
+        fun updateData(newList: List<KehadiranItem>) {
+            listKehadiran = newList
+            notifyDataSetChanged()
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -70,9 +80,7 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
                 else -> holder.itemView.context.getColor(R.color.black)
             })
 
-            // Set onClick untuk item - TANPA POP UP
             holder.rootView.setOnClickListener {
-                // Hanya tampilkan Toast singkat, tanpa pop-up
                 Toast.makeText(
                     this@RiwayatKehadiranSiswa,
                     "${item.nama}: ${item.statusDetail}",
@@ -86,6 +94,7 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
 
     // ===== COMPONENTS =====
     private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: KehadiranAdapter
     private lateinit var tvTotalTitle: TextView
     private lateinit var tvTotalNumber: TextView
     private lateinit var tvHadirValue: TextView
@@ -103,35 +112,9 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
     private lateinit var btnMenu: ImageButton
 
     // ===== STATE =====
-    private var currentStatus = "Semua"
-    private var currentRole = "Semua"
-    private var currentDate = Calendar.getInstance().apply {
-        set(2026, 0, 7) // 7 Januari 2026
-    }
-
-    // ===== DUMMY DATA =====
-    private val semuaKehadiran = listOf(
-        KehadiranItem(1, "Nama Guru", "Guru", "hadir", "07:00",
-            "Senin, 7 Januari 2026", "Hadir", "Tepat Waktu"),
-        KehadiranItem(2, "Nama Guru", "Guru", "terlambat", "07:50",
-            "Senin, 7 Januari 2026", "Hadir", "Terlambat"),
-        KehadiranItem(3, "Nama Guru", "Wali Kelas", "izin", "07:00",
-            "Senin, 7 Januari 2026", "Rapat bersama", "Izin"),
-        KehadiranItem(4, "Nama Guru", "Wali Kelas", "sakit", "07:00",
-            "Senin, 7 Januari 2026", "Demam", "Sakit"),
-        KehadiranItem(5, "Nama Guru", "Guru", "alpha", "07:00",
-            "Senin, 7 Januari 2026", "-", "Alpha"),
-        KehadiranItem(6, "Ahmad Rizki", "Siswa", "hadir", "07:00",
-            "Senin, 7 Januari 2026", "Hadir", "Tepat Waktu"),
-        KehadiranItem(7, "Budi Santoso", "Siswa", "terlambat", "07:50",
-            "Senin, 7 Januari 2026", "Hadir", "Terlambat"),
-        KehadiranItem(8, "Citra Dewi", "Siswa", "izin", "07:00",
-            "Senin, 7 Januari 2026", "Acara keluarga", "Izin"),
-        KehadiranItem(9, "Dedi Kurniawan", "Siswa", "sakit", "07:00",
-            "Senin, 7 Januari 2026", "Flu", "Sakit"),
-        KehadiranItem(10, "Eka Putri", "Siswa", "alpha", "07:00",
-            "Senin, 7 Januari 2026", "-", "Alpha")
-    )
+    private var currentStatus = "Semua" // API param
+    private var currentRole = "Semua"   // API param
+    private var currentDate = Calendar.getInstance() // API param
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -141,7 +124,8 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
         setupRecyclerView()
         setupFilters()
         setupNavigation()
-        filterData()
+        
+        loadDataFromApi()
     }
 
     private fun initViews() {
@@ -166,7 +150,6 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
         val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
         textTanggal.text = dateFormat.format(currentDate.time)
 
-        // Set role default ke "Semua"
         textRole.text = "Semua"
         tvTotalTitle.text = "Total Data"
     }
@@ -174,18 +157,17 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
     private fun setupRecyclerView() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.setHasFixedSize(true)
+        adapter = KehadiranAdapter(emptyList())
+        recyclerView.adapter = adapter
     }
 
     private fun setupFilters() {
-        // 1. FILTER STATUS
         btnDropdownStatus.setOnClickListener { showStatusPopupMenu() }
         textStatus.setOnClickListener { showStatusPopupMenu() }
 
-        // 2. FILTER ROLE
         btnDropdownRole.setOnClickListener { showRolePopupMenu() }
         textRole.setOnClickListener { showRolePopupMenu() }
 
-        // 3. FILTER TANGGAL
         btnCalendar.setOnClickListener { showDatePickerDialog() }
         textTanggal.setOnClickListener { showDatePickerDialog() }
     }
@@ -196,16 +178,15 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
     }
 
     private fun showStatusPopupMenu() {
-        val statusList = arrayOf("Semua", "Hadir", "Terlambat", "Izin", "Sakit", "Alpha")
+        val statusList = arrayOf("Semua", "hadir", "terlambat", "izin", "sakit", "alpha") // Match API values
 
         AlertDialog.Builder(this)
             .setTitle("Pilih Status Kehadiran")
             .setItems(statusList) { _, which ->
                 val selected = statusList[which]
-                textStatus.text = selected
+                textStatus.text = selected.capitalize(Locale.getDefault())
                 currentStatus = selected
-                filterData()
-                Toast.makeText(this, "Filter status: $selected", Toast.LENGTH_SHORT).show()
+                loadDataFromApi()
             }
             .show()
     }
@@ -220,15 +201,13 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
                 textRole.text = selected
                 currentRole = selected
 
-                // Update judul total
                 if (selected == "Semua") {
                     tvTotalTitle.text = "Total Data"
                 } else {
                     tvTotalTitle.text = "Total $selected"
                 }
 
-                filterData()
-                Toast.makeText(this, "Filter peran: $selected", Toast.LENGTH_SHORT).show()
+                loadDataFromApi()
             }
             .show()
     }
@@ -244,8 +223,7 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
                 currentDate.set(selectedYear, selectedMonth, selectedDay)
                 val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
                 textTanggal.text = dateFormat.format(currentDate.time)
-                filterData()
-                Toast.makeText(this, "Filter tanggal: ${textTanggal.text}", Toast.LENGTH_SHORT).show()
+                loadDataFromApi()
             },
             year,
             month,
@@ -254,72 +232,120 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
         datePickerDialog.show()
     }
 
-    private fun showExportImportMenu() {
-        val popupMenu = PopupMenu(this, btnMenu)
-        val menu = popupMenu.menu
+    private fun loadDataFromApi() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        
+        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
 
-        menu.add("📤 Export ke Excel")
-        menu.add("📥 Import dari Excel")
-        menu.add("🖨️ Print Laporan")
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateStr = dateFormat.format(currentDate.time)
+        
+        // Map local status to API status if needed, or pass directly
+        val apiStatus = if (currentStatus == "Semua") null else currentStatus
+        val apiRole = if (currentRole == "Semua") null else currentRole
 
-        popupMenu.setOnMenuItemClickListener { item ->
-            when (item.title) {
-                "📤 Export ke Excel" ->
-                    Toast.makeText(this, "Export data ke Excel", Toast.LENGTH_SHORT).show()
-                "📥 Import dari Excel" ->
-                    Toast.makeText(this, "Import data dari Excel", Toast.LENGTH_SHORT).show()
-                "🖨️ Print Laporan" ->
-                    Toast.makeText(this, "Mencetak laporan", Toast.LENGTH_SHORT).show()
-            }
-            true
-        }
-        popupMenu.show()
-    }
+        apiService.getSchoolAttendanceHistory(
+            date = dateStr,
+            status = apiStatus,
+            role = apiRole,
+            page = 1 // Fetch page 1 for now (pagination could be added later)
+        ).enqueue(object : Callback<SchoolAttendanceResponse> {
+            override fun onResponse(
+                call: Call<SchoolAttendanceResponse>,
+                response: Response<SchoolAttendanceResponse>
+            ) {
+                if (response.isSuccessful && response.body() != null) {
+                    val data = response.body()!!
+                    val items = data.data.map { apiItem ->
+                        val name = if (apiItem.attendeeType == "student") {
+                            apiItem.student?.user?.name ?: "Siswa"
+                        } else {
+                            apiItem.teacher?.user?.name ?: "Guru"
+                        }
+                        
+                        val roleDisplay = if (apiItem.attendeeType == "student") "Siswa" else "Guru"
+                        
+                        // Parse time
+                        val timeStr = apiItem.checkedInTime?.substringAfter(" ")?.substringBeforeLast(":") ?: "-"
+                        
+                        // Parse date for display
+                        val dateDisplay = try {
+                           val sdfIn = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                           val sdfOut = SimpleDateFormat("EEEE, d MMMM yyyy", Locale("id", "ID"))
+                           val dateObj = sdfIn.parse(apiItem.date ?: dateStr)
+                           sdfOut.format(dateObj!!)
+                        } catch (e: Exception) {
+                            apiItem.date ?: dateStr
+                        }
 
-    private fun filterData() {
-        var filteredList = semuaKehadiran
+                        val statusLabel = when (apiItem.status) {
+                            "present" -> "Hadir"
+                            "late" -> "Terlambat"
+                            "sick" -> "Sakit"
+                            "excused" -> "Izin"
+                            "absent" -> "Alpha"
+                            "dinas" -> "Dinas"
+                            else -> apiItem.status.capitalize()
+                        }
+                        
+                        val detailLabel = when (apiItem.status) {
+                            "present" -> "Tepat Waktu"
+                            "late" -> "Terlambat"
+                            "sick" -> "Sakit"
+                            "excused" -> "Izin"
+                            "absent" -> "Alpha"
+                             else -> "-"
+                        }
 
-        // 1. Filter berdasarkan STATUS
-        if (currentStatus != "Semua") {
-            filteredList = filteredList.filter {
-                it.status.equals(currentStatus, ignoreCase = true)
-            }
-        }
-
-        // 2. Filter berdasarkan ROLE
-        if (currentRole != "Semua") {
-            filteredList = filteredList.filter {
-                when (currentRole) {
-                    "Guru" -> it.role == "Guru" || it.role == "Wali Kelas"
-                    "Siswa" -> it.role == "Siswa"
-                    else -> true
+                        KehadiranItem(
+                            id = apiItem.id,
+                            nama = name,
+                            role = roleDisplay,
+                            status = if (apiItem.status == "present") "hadir" else apiItem.status,
+                            waktu = timeStr,
+                            tanggal = dateDisplay,
+                            keterangan = if (apiItem.status == "late") "Terlambat" else statusLabel,
+                            statusDetail = detailLabel
+                        )
+                    }
+                    
+                    adapter.updateData(items)
+                    updateStatistics(items) // Update stats based on loaded page (limited to 20 for now)
+                    
+                    tvTotalNumber.text = data.data.size.toString() + "+" // Indicate more data might exist
+                    
+                } else {
+                    Toast.makeText(this@RiwayatKehadiranSiswa, "Gagal memuat data", Toast.LENGTH_SHORT).show()
                 }
             }
-        }
 
-        // Update RecyclerView dengan data yang sudah difilter
-        recyclerView.adapter = KehadiranAdapter(filteredList)
-
-        // Update statistik
-        updateStatistics(filteredList)
+            override fun onFailure(call: Call<SchoolAttendanceResponse>, t: Throwable) {
+                Toast.makeText(this@RiwayatKehadiranSiswa, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    private fun updateStatistics(filteredList: List<KehadiranItem>) {
-        val total = filteredList.size
-        tvTotalNumber.text = total.toString()
-
-        val hadir = filteredList.count { it.status.equals("hadir", true) }
-        val terlambat = filteredList.count { it.status.equals("terlambat", true) }
-        val izin = filteredList.count { it.status.equals("izin", true) }
-        val sakit = filteredList.count { it.status.equals("sakit", true) }
-        val alpha = filteredList.count { it.status.equals("alpha", true) }
-        val pulang = filteredList.count { it.status.equals("Pulang", true) }
-
-
+    private fun updateStatistics(list: List<KehadiranItem>) {
+        // Note: This only counts visible items (pagination limitation)
+        // For full stats, we should use the Dashboard API stats, but for now this gives immediate feedback on list
+        val hadir = list.count { it.status == "hadir" || it.status == "present" }
+        val terlambat = list.count { it.status == "late" || it.statusDetail == "Terlambat" }
+        val izin = list.count { it.status == "excused" || it.status == "izin" || it.statusDetail == "Izin" }
+        val sakit = list.count { it.status == "sick" || it.status == "sakit" || it.statusDetail == "Sakit" }
+        val alpha = list.count { it.status == "absent" || it.status == "alpha" || it.statusDetail == "Alpha" }
+        
         tvHadirValue.text = hadir.toString()
         tvTerlambatValue.text = terlambat.toString()
         tvIzinValue.text = izin.toString()
         tvSakitValue.text = sakit.toString()
         tvAlphaValue.text = alpha.toString()
+    }
+
+    private fun showExportImportMenu() {
+        val popupMenu = androidx.appcompat.widget.PopupMenu(this, btnMenu)
+        popupMenu.menu.add("📤 Export ke Excel")
+        popupMenu.menu.add("📥 Import dari Excel")
+        popupMenu.menu.add("🖨️ Print Laporan")
+        popupMenu.show()
     }
 }

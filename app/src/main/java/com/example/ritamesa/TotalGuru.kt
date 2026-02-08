@@ -8,35 +8,62 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.model.CreateTeacherRequest
+import com.example.ritamesa.data.model.GeneralResponse
+import com.example.ritamesa.data.model.UpdateTeacherRequest
 
 class TotalGuru : AppCompatActivity() {
 
     // ===== DATA LIST =====
-    private val listGuruDummy = arrayListOf(
-        Guru(1, "Budi Santoso", "G001", "198011152001011001", "Matematika", "Guru"),
-        Guru(2, "Siti Aminah", "G002", "197505202000032002", "Bahasa Indonesia", "Waka"),
-        Guru(3, "Ahmad Rizki", "G003", "198512102005011003", "IPA", "Guru"),
-        Guru(4, "Dewi Lestari", "G004", "197802152002032004", "IPS", "Guru"),
-        Guru(5, "Joko Widodo", "G005", "196107211991011005", "PKN", "Kepsek"),
-        Guru(6, "Rina Melati", "G006", "198304122008032006", "Seni Budaya", "Guru"),
-        Guru(7, "Agus Salim", "G007", "197611081999011007", "Olahraga", "Guru"),
-        Guru(8, "Maya Sari", "G008", "198709052010032008", "Bahasa Inggris", "Waka"),
-        Guru(9, "Rudi Hartono", "G009", "198201182006011009", "TIK", "Guru"),
-        Guru(10, "Linda Wijaya", "G010", "198812302012032010", "BK", "Guru")
-    )
+    private var listGuru = mutableListOf<com.example.ritamesa.data.model.TeacherItem>()
+    private var filteredList = mutableListOf<com.example.ritamesa.data.model.TeacherItem>()
 
     // ===== COMPONENTS =====
     private lateinit var recyclerView: RecyclerView
     private lateinit var guruAdapter: GuruAdapter
     private lateinit var editTextSearch: EditText
+    private lateinit var apiService: com.example.ritamesa.data.api.ApiService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.total_guru)
 
+        apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+
         initView()
         setupRecyclerView()
         setupActions()
+        loadTeachersFromApi()
+    }
+
+    private fun loadTeachersFromApi() {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Memuat data...")
+        pd.show()
+
+        apiService.getTeachers().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.TeacherListResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.TeacherListResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.TeacherListResponse>
+            ) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    val data = response.body()?.data
+                    if (data != null) {
+                        listGuru.clear()
+                        listGuru.addAll(data)
+                        filterGuru(editTextSearch.text.toString())
+                    }
+                } else {
+                    Toast.makeText(this@TotalGuru, "Gagal memuat data guru", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherListResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@TotalGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun initView() {
@@ -49,12 +76,12 @@ class TotalGuru : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.setHasFixedSize(true)
 
-        guruAdapter = GuruAdapter(listGuruDummy,
-            onEditClick = { guru, position ->
-                showEditDialog(guru, position)
+        guruAdapter = GuruAdapter(filteredList,
+            onEditClick = { guru, _ ->
+                showEditDialog(guru)
             },
-            onDeleteClick = { guru, position ->
-                showDeleteConfirmation(guru, position)
+            onDeleteClick = { guru, _ ->
+                showDeleteConfirmation(guru)
             }
         )
         recyclerView.adapter = guruAdapter
@@ -66,7 +93,7 @@ class TotalGuru : AppCompatActivity() {
             finish()
         }
 
-        // BUTTON TAMBAH - Ini LinearLayout, bukan ImageView
+        // BUTTON TAMBAH
         val btnTambah = findViewById<LinearLayout>(R.id.imageButton23)
         btnTambah.setOnClickListener {
             showAddDialog()
@@ -74,40 +101,41 @@ class TotalGuru : AppCompatActivity() {
 
         // BUTTON SEARCH
         findViewById<ImageButton>(R.id.imageButton17).setOnClickListener {
-            searchGuru()
+            filterGuru(editTextSearch.text.toString())
         }
 
         // ENTER KEY LISTENER UNTUK SEARCH
         editTextSearch.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
                 actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                searchGuru()
+                filterGuru(editTextSearch.text.toString())
                 true
             } else {
                 false
             }
         }
+        
+        editTextSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filterGuru(s.toString())
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
     }
 
-    private fun searchGuru() {
-        val query = editTextSearch.text.toString().trim()
-        val filteredList = if (query.isEmpty()) {
-            listGuruDummy
+    private fun filterGuru(query: String) {
+        val q = query.trim()
+        filteredList.clear()
+        if (q.isEmpty()) {
+            filteredList.addAll(listGuru)
         } else {
-            listGuruDummy.filter {
-                it.nama.contains(query, true) ||
-                        it.nip.contains(query, true) ||
-                        it.mapel.contains(query, true) ||
-                        it.kode.contains(query, true) ||
-                        it.keterangan.contains(query, true)
-            }
+            filteredList.addAll(listGuru.filter {
+                it.nama.contains(q, true) ||
+                it.nip?.contains(q, true) == true
+            })
         }
-
-        if (filteredList.isEmpty() && query.isNotEmpty()) {
-            Toast.makeText(this, "Tidak ditemukan guru dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
-        }
-
-        guruAdapter.updateData(filteredList)
+        guruAdapter.notifyDataSetChanged()
     }
 
     private fun showAddDialog() {
@@ -156,12 +184,7 @@ class TotalGuru : AppCompatActivity() {
                 }
 
                 showSaveConfirmation("Tambah") {
-                    val newId = if (listGuruDummy.isNotEmpty()) listGuruDummy.last().id + 1 else 1
-                    val newGuru = Guru(newId, nama, kode, nip, mapel, keterangan)
-                    listGuruDummy.add(newGuru)
-                    guruAdapter.updateData(listGuruDummy)
-                    Toast.makeText(this, "Data guru berhasil ditambahkan", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
+                    createTeacher(nama, nip, kode, mapel, keterangan, dialog)
                 }
             }
 
@@ -173,10 +196,46 @@ class TotalGuru : AppCompatActivity() {
         }
     }
 
-    private fun showEditDialog(guru: Guru, position: Int) {
+    private fun createTeacher(nama: String, nip: String, kode: String, mapel: String, keterangan: String, dialog: Dialog) {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Menyimpan data...")
+        pd.show()
+
+        val request = CreateTeacherRequest(
+            name = nama,
+            username = nip, // Default username uses NIP
+            email = null,
+            password = "password123", // Default password
+            nip = nip,
+            phone = null,
+            contact = null,
+            homeroomClassId = null,
+            subject = mapel
+        )
+
+        apiService.createTeacher(request).enqueue(object : retrofit2.Callback<GeneralResponse> {
+            override fun onResponse(call: retrofit2.Call<GeneralResponse>, response: retrofit2.Response<GeneralResponse>) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalGuru, "Data guru berhasil ditambahkan", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                    loadTeachersFromApi()
+                } else {
+                    Toast.makeText(this@TotalGuru, "Gagal menambahkan: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: retrofit2.Call<GeneralResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@TotalGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showEditDialog(guru: com.example.ritamesa.data.model.TeacherItem) {
         try {
             val dialog = Dialog(this)
-            dialog.setContentView(R.layout.pop_up_tambah_data_guru) // Gunakan layout yang sama
+            dialog.setContentView(R.layout.pop_up_tambah_data_guru)
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
             dialog.window?.setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -194,15 +253,13 @@ class TotalGuru : AppCompatActivity() {
             val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
             val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
 
-            // Set judul dialog
             dialog.setTitle("Edit Data Guru")
 
-            // Isi data yang akan diedit
-            inputNama?.setText(guru.nama)
+            inputNama?.setText(guru.name)
             inputNip?.setText(guru.nip)
-            inputKode?.setText(guru.kode)
-            inputMapel?.setText(guru.mapel)
-            inputKeterangan?.setText(guru.keterangan)
+            // inputKode?.setText(guru.kode) // TeacherItem might not have code, using stub
+            inputMapel?.setText(guru.subject)
+            // inputKeterangan?.setText(guru.keterangan) // stub
 
             btnArrowMapel?.setOnClickListener {
                 showMapelDropdown(inputMapel)
@@ -218,22 +275,16 @@ class TotalGuru : AppCompatActivity() {
 
             btnSimpan?.setOnClickListener {
                 val nama = inputNama?.text?.toString()?.trim() ?: ""
-                val nip = inputNip?.text?.toString()?.trim() ?: ""
-                val kode = inputKode?.text?.toString()?.trim() ?: ""
                 val mapel = inputMapel?.text?.toString()?.trim() ?: ""
-                val keterangan = inputKeterangan?.text?.toString()?.trim() ?: ""
+                // Nip might not be editable or ignored if not changed
 
-                if (nama.isEmpty() || nip.isEmpty() || kode.isEmpty() || mapel.isEmpty() || keterangan.isEmpty()) {
-                    Toast.makeText(this, "Harap isi semua field!", Toast.LENGTH_SHORT).show()
+                if (nama.isEmpty()) {
+                    Toast.makeText(this, "Nama tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
                 showSaveConfirmation("Edit") {
-                    // Update data di list
-                    listGuruDummy[position] = Guru(guru.id, nama, kode, nip, mapel, keterangan)
-                    guruAdapter.updateData(listGuruDummy)
-                    Toast.makeText(this, "Data guru berhasil diperbarui", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
+                    updateTeacher(guru.id, nama, mapel, dialog)
                 }
             }
 
@@ -245,14 +296,62 @@ class TotalGuru : AppCompatActivity() {
         }
     }
 
-    private fun showDeleteConfirmation(guru: Guru, position: Int) {
+    private fun updateTeacher(id: Int, nama: String, mapel: String, dialog: Dialog) {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Mengupdate data...")
+        pd.show()
+
+        val request = UpdateTeacherRequest(
+            name = nama,
+            email = null,
+            phone = null,
+            contact = null,
+            homeroomClassId = null,
+            subject = mapel
+        )
+
+        apiService.updateTeacher(id, request).enqueue(object : retrofit2.Callback<GeneralResponse> {
+            override fun onResponse(call: retrofit2.Call<GeneralResponse>, response: retrofit2.Response<GeneralResponse>) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalGuru, "Data guru berhasil diperbarui", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                    loadTeachersFromApi()
+                } else {
+                    Toast.makeText(this@TotalGuru, "Gagal mengupdate: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<GeneralResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@TotalGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showDeleteConfirmation(guru: com.example.ritamesa.data.model.TeacherItem) {
         AlertDialog.Builder(this)
             .setTitle("Konfirmasi Hapus")
-            .setMessage("Apakah Anda yakin akan menghapus data ${guru.nama}?")
+            .setMessage("Apakah Anda yakin akan menghapus data ${guru.name}?")
             .setPositiveButton("Ya, Hapus") { _, _ ->
-                listGuruDummy.removeAt(position)
-                guruAdapter.updateData(listGuruDummy)
-                Toast.makeText(this, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+                 val pd = android.app.ProgressDialog(this)
+                 pd.setMessage("Menghapus data...")
+                 pd.show()
+                 
+                 apiService.deleteTeacher(guru.id).enqueue(object : retrofit2.Callback<GeneralResponse> {
+                    override fun onResponse(call: retrofit2.Call<GeneralResponse>, response: retrofit2.Response<GeneralResponse>) {
+                        pd.dismiss()
+                        if (response.isSuccessful) {
+                            Toast.makeText(this@TotalGuru, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+                            loadTeachersFromApi()
+                        } else {
+                            Toast.makeText(this@TotalGuru, "Gagal menghapus: ${response.message()}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    override fun onFailure(call: retrofit2.Call<GeneralResponse>, t: Throwable) {
+                        pd.dismiss()
+                        Toast.makeText(this@TotalGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    }
+                 })
             }
             .setNegativeButton("Batal", null)
             .show()

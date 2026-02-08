@@ -140,7 +140,95 @@ class StatistikWakaa : AppCompatActivity() {
         }
     }
 
-    private fun updateChartsBasedOnTimeRange() {
+    private val apiService by lazy {
+        com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+    }
+
+    // Storage for fetched data
+    private var statsSemua = mutableMapOf<String, Int>() // "hadir" -> count
+    private var statsGuru = mutableMapOf<String, Int>()
+    private var statsSiswa = mutableMapOf<String, Int>()
+
+    private fun fetchStatistics() {
+        val (startDate, endDate) = getDateRange()
+        
+        // Fetch Student Data
+        apiService.getWakaAttendanceSummary(from = startDate, to = endDate, type = "student").enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse> {
+            override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>) {
+                if (response.isSuccessful) {
+                    processStats(response.body()?.statusSummary, "student")
+                    checkAndUpdateCharts()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, t: Throwable) {
+                // Log error
+            }
+        })
+
+        // Fetch Teacher Data
+        apiService.getWakaAttendanceSummary(from = startDate, to = endDate, type = "teacher").enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse> {
+            override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>) {
+                if (response.isSuccessful) {
+                    processStats(response.body()?.statusSummary, "teacher")
+                    checkAndUpdateCharts()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, t: Throwable) {
+                // Log error
+            }
+        })
+    }
+
+    private fun getDateRange(): Pair<String, String> {
+        val calendar = java.util.Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val end = dateFormat.format(calendar.time)
+        
+        when (currentTimeRange) {
+            "HARIAN" -> {
+                // Same day
+            }
+            "MINGGUAN" -> {
+                calendar.add(java.util.Calendar.DAY_OF_YEAR, -7)
+            }
+            "BULANAN" -> {
+                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        val start = dateFormat.format(calendar.time)
+        return Pair(start, end)
+    }
+
+    private fun processStats(summary: List<com.example.ritamesa.data.model.StatusSummaryItem>?, type: String) {
+        val map = if (type == "teacher") statsGuru else statsSiswa
+        map.clear()
+        summary?.forEach { 
+             val key = it.status.lowercase()
+             val normalizedKey = when(key) {
+                 "present", "hadir" -> "hadir"
+                 "sick", "sakit" -> "sakit"
+                 "excused", "izin" -> "izin"
+                 "absent", "alpha" -> "alpha"
+                 "late", "terlambat" -> "terlambat"
+                 else -> "alpha"
+             }
+             map[normalizedKey] = (map[normalizedKey] ?: 0) + it.total
+        }
+        
+        // Aggregate for SEMUA (Total)
+        if (type == "teacher" || type == "student") {
+             // Re-calculate SEMUA whenever fetch happens. 
+             // Note: ideally we wait for both, but for responsiveness we can just sum available maps
+             statsSemua.clear()
+             val allKeys = statsGuru.keys + statsSiswa.keys
+             allKeys.forEach { key ->
+                 statsSemua[key] = (statsGuru[key] ?: 0) + (statsSiswa[key] ?: 0)
+             }
+        }
+    }
+
+    private fun checkAndUpdateCharts() {
+        // Trigger update based on current mode
         when (currentMode) {
             "SEMUA" -> showSemuaStatistics()
             "GURU" -> showGuruStatistics()
@@ -148,187 +236,87 @@ class StatistikWakaa : AppCompatActivity() {
         }
     }
 
+    private fun updateChartsBasedOnTimeRange() {
+        fetchStatistics() // Re-fetch on time range change
+    }
+
     private fun showSemuaStatistics() {
         currentMode = "SEMUA"
-
-        val textView11: android.widget.TextView = findViewById(R.id.textView11)
-        textView11.text = "Semua"
-
+        findViewById<android.widget.TextView>(R.id.textView11).text = "Semua"
         updateBarChartForSemua()
         updatePieChartForSemua()
         updateStatsCardsForSemua()
-
-        Toast.makeText(this, "Menampilkan statistik Semua", Toast.LENGTH_SHORT).show()
     }
 
     private fun showGuruStatistics() {
         currentMode = "GURU"
-
-        val textView11: android.widget.TextView = findViewById(R.id.textView11)
-        textView11.text = "Guru"
-
+        findViewById<android.widget.TextView>(R.id.textView11).text = "Guru"
         updateBarChartForGuru()
         updatePieChartForGuru()
         updateStatsCardsForGuru()
-
-        Toast.makeText(this, "Menampilkan statistik Guru", Toast.LENGTH_SHORT).show()
     }
 
     private fun showSiswaStatistics() {
         currentMode = "SISWA"
-
-        val textView11: android.widget.TextView = findViewById(R.id.textView11)
-        textView11.text = "Siswa"
-
+        findViewById<android.widget.TextView>(R.id.textView11).text = "Siswa"
         updateBarChartForSiswa()
         updatePieChartForSiswa()
         updateStatsCardsForSiswa()
-
-        Toast.makeText(this, "Menampilkan statistik Siswa", Toast.LENGTH_SHORT).show()
     }
 
     private fun updateStatsCardsForSemua() {
-        val textView13: android.widget.TextView = findViewById(R.id.textView13)
-        val textView14: android.widget.TextView = findViewById(R.id.textView14)
-        val textView15: android.widget.TextView = findViewById(R.id.textView15)
-        val textView16: android.widget.TextView = findViewById(R.id.textView16)
-
-        when (currentTimeRange) {
-            "HARIAN" -> {
-                textView13.text = "85%"
-                textView14.text = "120"
-                textView15.text = "25"
-                textView16.text = "8"
-            }
-            "MINGGUAN" -> {
-                textView13.text = "82%"
-                textView14.text = "580"
-                textView15.text = "95"
-                textView16.text = "35"
-            }
-            "BULANAN" -> {
-                textView13.text = "88%"
-                textView14.text = "2200"
-                textView15.text = "210"
-                textView16.text = "80"
-            }
-        }
+        updateCardsFromMap(statsSemua)
     }
 
     private fun updateStatsCardsForGuru() {
-        val textView13: android.widget.TextView = findViewById(R.id.textView13)
-        val textView14: android.widget.TextView = findViewById(R.id.textView14)
-        val textView15: android.widget.TextView = findViewById(R.id.textView15)
-        val textView16: android.widget.TextView = findViewById(R.id.textView16)
-
-        when (currentTimeRange) {
-            "HARIAN" -> {
-                textView13.text = "92%"
-                textView14.text = "45"
-                textView15.text = "3"
-                textView16.text = "1"
-            }
-            "MINGGUAN" -> {
-                textView13.text = "90%"
-                textView14.text = "225"
-                textView15.text = "18"
-                textView16.text = "7"
-            }
-            "BULANAN" -> {
-                textView13.text = "94%"
-                textView14.text = "900"
-                textView15.text = "45"
-                textView16.text = "15"
-            }
-        }
+        updateCardsFromMap(statsGuru)
     }
-
+    
     private fun updateStatsCardsForSiswa() {
-        val textView13: android.widget.TextView = findViewById(R.id.textView13)
-        val textView14: android.widget.TextView = findViewById(R.id.textView14)
-        val textView15: android.widget.TextView = findViewById(R.id.textView15)
-        val textView16: android.widget.TextView = findViewById(R.id.textView16)
-
-        when (currentTimeRange) {
-            "HARIAN" -> {
-                textView13.text = "78%"
-                textView14.text = "75"
-                textView15.text = "22"
-                textView16.text = "7"
-            }
-            "MINGGUAN" -> {
-                textView13.text = "80%"
-                textView14.text = "355"
-                textView15.text = "77"
-                textView16.text = "28"
-            }
-            "BULANAN" -> {
-                textView13.text = "85%"
-                textView14.text = "1300"
-                textView15.text = "165"
-                textView16.text = "65"
-            }
-        }
+        updateCardsFromMap(statsSiswa)
+    }
+    
+    private fun updateCardsFromMap(data: Map<String, Int>) {
+        val total = data.values.sum()
+        val hadir = (data["hadir"] ?: 0) + (data["terlambat"] ?: 0) // Late is considered present usually? or separate?
+        // Let's keep separate as per existing UI logic maybe?
+        // Actually UI has Total %, Total Students/Teachers, Late, Alpha.
+        
+        // textView13 -> Percentage Present?
+        // textView14 -> Total Count?
+        // textView15 -> Late Count
+        // textView16 -> Alpha Count
+        
+        val presentTotal = (data["hadir"] ?: 0) + (data["terlambat"] ?: 0)
+        val percent = if (total > 0) (presentTotal.toFloat() / total * 100) else 0f
+        
+        findViewById<android.widget.TextView>(R.id.textView13).text = "${"%.1f".format(percent)}%"
+        findViewById<android.widget.TextView>(R.id.textView14).text = total.toString()
+        findViewById<android.widget.TextView>(R.id.textView15).text = (data["terlambat"] ?: 0).toString()
+        findViewById<android.widget.TextView>(R.id.textView16).text = (data["alpha"] ?: 0).toString()
     }
 
     private fun getBarChartDataForMode(): List<Float> {
-        return when (currentMode) {
-            "SEMUA" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
-                    "MINGGUAN" -> listOf(82f, 10f, 6f, 2f, 4f, 88f)
-                    "BULANAN" -> listOf(88f, 7f, 3f, 2f, 2f, 94f)
-                    else -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
-                }
-            }
-            "GURU" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(92f, 5f, 2f, 1f, 2f, 95f)
-                    "MINGGUAN" -> listOf(90f, 6f, 3f, 1f, 3f, 92f)
-                    "BULANAN" -> listOf(94f, 4f, 1f, 1f, 2f, 96f)
-                    else -> listOf(92f, 5f, 2f, 1f, 2f, 95f)
-                }
-            }
-            "SISWA" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(78f, 10f, 7f, 5f, 8f, 82f)
-                    "MINGGUAN" -> listOf(80f, 11f, 6f, 3f, 7f, 85f)
-                    "BULANAN" -> listOf(85f, 9f, 4f, 2f, 6f, 90f)
-                    else -> listOf(78f, 10f, 7f, 5f, 8f, 82f)
-                }
-            }
-            else -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
+        val map = when (currentMode) {
+             "SEMUA" -> statsSemua
+             "GURU" -> statsGuru
+             "SISWA" -> statsSiswa
+             else -> statsSemua
         }
+        
+        // Order: "Hadir", "Izin", "Sakit", "Tidak Hadir", "Terlambat", "Pulang"
+        return listOf(
+            (map["hadir"] ?: 0).toFloat(),
+            (map["izin"] ?: 0).toFloat(),
+            (map["sakit"] ?: 0).toFloat(),
+            (map["alpha"] ?: 0).toFloat(),
+            (map["terlambat"] ?: 0).toFloat(),
+            0f // Pulang not tracked effectively yet
+        )
     }
 
     private fun getPieChartDataForMode(): List<Float> {
-        return when (currentMode) {
-            "SEMUA" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
-                    "MINGGUAN" -> listOf(82f, 10f, 6f, 2f, 4f, 88f)
-                    "BULANAN" -> listOf(88f, 7f, 3f, 2f, 2f, 94f)
-                    else -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
-                }
-            }
-            "GURU" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(92f, 5f, 2f, 1f, 2f, 95f)
-                    "MINGGUAN" -> listOf(90f, 6f, 3f, 1f, 3f, 92f)
-                    "BULANAN" -> listOf(94f, 4f, 1f, 1f, 2f, 96f)
-                    else -> listOf(92f, 5f, 2f, 1f, 2f, 95f)
-                }
-            }
-            "SISWA" -> {
-                when (currentTimeRange) {
-                    "HARIAN" -> listOf(78f, 10f, 7f, 5f, 8f, 82f)
-                    "MINGGUAN" -> listOf(80f, 11f, 6f, 3f, 7f, 85f)
-                    "BULANAN" -> listOf(85f, 9f, 4f, 2f, 6f, 90f)
-                    else -> listOf(78f, 10f, 7f, 5f, 8f, 82f)
-                }
-            }
-            else -> listOf(85f, 8f, 5f, 2f, 3f, 92f)
-        }
+        return getBarChartDataForMode()
     }
 
     private fun updateBarChartForSemua() {
@@ -362,7 +350,11 @@ class StatistikWakaa : AppCompatActivity() {
 
         dataSet.valueTextColor = Color.BLACK
         dataSet.valueTextSize = 12f
-        dataSet.valueFormatter = PercentageFormatter()
+        dataSet.valueFormatter = object : ValueFormatter() {
+             override fun getFormattedValue(value: Float): String {
+                 return value.toInt().toString()
+             }
+        }
 
         val barData = BarData(dataSet)
         barData.barWidth = 0.5f
@@ -379,7 +371,15 @@ class StatistikWakaa : AppCompatActivity() {
 
         barChart.invalidate()
     }
+    
 
+    private fun setupPieChart() {
+         // Initial setup
+        pieChart.description.isEnabled = false
+        // ... (rest of filtering)
+        fetchStatistics() // Fetch initial data
+    }
+    
     private fun updatePieChartForSemua() {
         updatePieChartWithData(getPieChartDataForMode(), "Semua")
     }
@@ -397,7 +397,9 @@ class StatistikWakaa : AppCompatActivity() {
         val labels = arrayOf("Hadir", "Izin", "Sakit", "Tidak Hadir", "Terlambat", "Pulang")
 
         data.forEachIndexed { index, value ->
-            entries.add(PieEntry(value, labels[index]))
+            if (value > 0) {
+                 entries.add(PieEntry(value, labels[index]))
+            }
         }
 
         val dataSet = PieDataSet(entries, "Status Kehadiran $mode")

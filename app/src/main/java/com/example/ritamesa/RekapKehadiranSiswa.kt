@@ -13,6 +13,14 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.StudentItem
+import com.example.ritamesa.data.model.StudentListResponse
+import com.example.ritamesa.data.model.StudentAttendanceAdminResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class RekapKehadiranSiswa : AppCompatActivity() {
 
@@ -21,35 +29,75 @@ class RekapKehadiranSiswa : AppCompatActivity() {
     private lateinit var editTextSearch: EditText
     private lateinit var btnBack: ImageButton
     private lateinit var btnMenu: ImageButton
-
-    // Data dummy siswa - menggunakan struktur yang sama dengan DataRekapkehadiranSiswa
-    private val siswaList = mutableListOf(
-        SiswaRekap(1, "Ahmad Rizki", "0012345678", "XII RPL 1"),
-        SiswaRekap(2, "Siti Nurhaliza", "0012345679", "XII RPL 2"),
-        SiswaRekap(3, "Budi Santoso", "0012345680", "XII RPL 1"),
-        SiswaRekap(4, "Dewi Lestari", "0012345681", "XII TKJ 1"),
-        SiswaRekap(5, "Eko Prasetyo", "0012345682", "XII RPL 2"),
-        SiswaRekap(6, "Fitria Ayu", "0012345683", "XII DKV 1"),
-        SiswaRekap(7, "Galih Pratama", "0012345684", "XII RPL 1"),
-        SiswaRekap(8, "Hana Kartika", "0012345685", "XII TKJ 2"),
-        SiswaRekap(9, "Irfan Hakim", "0012345686", "XII RPL 2"),
-        SiswaRekap(10, "Joko Widodo", "0012345687", "XII DKV 2"),
-        SiswaRekap(11, "Kartini Sari", "0012345688", "XI RPL 1"),
-        SiswaRekap(12, "Lestari Wati", "0012345689", "XI TKJ 1"),
-        SiswaRekap(13, "Mulyadi", "0012345690", "XI DKV 1"),
-        SiswaRekap(14, "Nurul Hikmah", "0012345691", "X RPL 1"),
-        SiswaRekap(15, "Oktaviani", "0012345692", "X TKJ 1")
-    )
+    private lateinit var apiService: ApiService
+    private var siswaList = mutableListOf<StudentItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.rekap_kehadiran_siswa)
+
+        apiService = ApiClient.getClient(this).create(ApiService::class.java)
 
         initView()
         setupRecyclerView()
         setupActions()
         setupBottomNavigation()
         setupSearch()
+        
+        fetchStudents()
+    }
+
+    private fun fetchStudents(query: String? = null) {
+        val pd = android.app.ProgressDialog(this)
+        if (query == null) {
+            pd.setMessage("Memuat data siswa...")
+            pd.show()
+        }
+
+        apiService.getStudents(search = query, page = 1).enqueue(object : Callback<StudentListResponse> {
+            override fun onResponse(call: Call<StudentListResponse>, response: Response<StudentListResponse>) {
+                if (query == null) pd.dismiss()
+                if (response.isSuccessful) {
+                    val data = response.body()?.data ?: emptyList()
+                    siswaList.clear()
+                    siswaList.addAll(data)
+                    rekapAdapter.updateData(siswaList)
+                } else {
+                    Toast.makeText(this@RekapKehadiranSiswa, "Gagal memuat siswa", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<StudentListResponse>, t: Throwable) {
+                if (query == null) pd.dismiss()
+                Toast.makeText(this@RekapKehadiranSiswa, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+    
+    private fun fetchStudentHistory(studentId: Int, callback: (List<com.example.ritamesa.data.model.StudentAttendanceItem>) -> Unit) {
+         val pd = android.app.ProgressDialog(this)
+         pd.setMessage("Memuat riwayat kehadiran...")
+         pd.show()
+         
+         apiService.getStudentAttendanceAdmin(studentId = studentId).enqueue(object : Callback<List<StudentAttendanceAdminResponse>> {
+             override fun onResponse(call: Call<List<StudentAttendanceAdminResponse>>, response: Response<List<StudentAttendanceAdminResponse>>) {
+                 pd.dismiss()
+                 if (response.isSuccessful) {
+                     val list = response.body()
+                     if (!list.isNullOrEmpty()) {
+                         callback(list[0].items)
+                     } else {
+                         callback(emptyList())
+                         Toast.makeText(this@RekapKehadiranSiswa, "Belum ada data kehadiran", Toast.LENGTH_SHORT).show()
+                     }
+                 } else {
+                     Toast.makeText(this@RekapKehadiranSiswa, "Gagal memuat riwayat", Toast.LENGTH_SHORT).show()
+                 }
+             }
+             override fun onFailure(call: Call<List<StudentAttendanceAdminResponse>>, t: Throwable) {
+                 pd.dismiss()
+                 Toast.makeText(this@RekapKehadiranSiswa, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+             }
+         })
     }
 
     private fun initView() {
@@ -72,17 +120,21 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         recyclerView.adapter = rekapAdapter
     }
 
-    private fun showPopupDetailSiswa(siswa: SiswaRekap) {
+    private fun showPopupDetailSiswa(siswa: StudentItem) {
         val inflater = LayoutInflater.from(this)
         val popupView = inflater.inflate(R.layout.popup_siswa_detail, null)
 
         // Set data siswa
-        popupView.findViewById<TextView>(R.id.tvPopupNama).text = siswa.nama
-        popupView.findViewById<TextView>(R.id.tvPopupNisn).text = siswa.nisn
-        popupView.findViewById<TextView>(R.id.tvPopupKelas).text = siswa.kelas
+        popupView.findViewById<TextView>(R.id.tvPopupNama).text = siswa.name
+        popupView.findViewById<TextView>(R.id.tvPopupNisn).text = siswa.nisn ?: "-"
+        popupView.findViewById<TextView>(R.id.tvPopupKelas).text = siswa.className
 
         val container = popupView.findViewById<LinearLayout>(R.id.containerKehadiran)
-        setupDataKehadiranSiswa(container, siswa)
+        
+        // Fetch and show history
+        fetchStudentHistory(siswa.id) { history ->
+            setupDataKehadiranSiswa(container, history)
+        }
 
         val popupWindow = PopupWindow(
             popupView,
@@ -118,26 +170,41 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         }
     }
 
-    private fun setupDataKehadiranSiswa(container: LinearLayout, siswa: SiswaRekap) {
+    private fun setupDataKehadiranSiswa(container: LinearLayout, history: List<com.example.ritamesa.data.model.StudentAttendanceItem>) {
         container.removeAllViews()
 
-        siswa.getDataKehadiran().forEach { kehadiran ->
+        history.forEach { kehadiran ->
             val itemView = LayoutInflater.from(this)
                 .inflate(R.layout.item_kehadiran_popup, container, false)
 
-            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.tanggal
-            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = kehadiran.mataPelajaran
-            itemView.findViewById<TextView>(R.id.tvJam).text = kehadiran.jam
+            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.date
+            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = kehadiran.schedule?.subjectInfo?.name ?: "-"
+            itemView.findViewById<TextView>(R.id.tvJam).text = "${kehadiran.schedule?.startTime ?: "-"} - ${kehadiran.schedule?.endTime ?: "-"}"
             itemView.findViewById<TextView>(R.id.tvStatus).text = kehadiran.status
-            itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan
+            itemView.findViewById<TextView>(R.id.tvKeterangan).text = "-" // Reason not in basic item, check model
 
             val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
             when (kehadiran.status.lowercase()) {
-                "hadir" -> tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                "sakit" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
-                "izin" -> tvStatus.setTextColor(Color.parseColor("#2196F3"))
-                "alpha" -> tvStatus.setTextColor(Color.parseColor("#F44336"))
-                "terlambat" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                "present" -> {
+                    tvStatus.text = "Hadir"
+                    tvStatus.setTextColor(Color.parseColor("#4CAF50"))
+                }
+                "sakit" -> {
+                     tvStatus.text = "Sakit"
+                     tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                }
+                "izin" -> {
+                     tvStatus.text = "Izin"
+                     tvStatus.setTextColor(Color.parseColor("#2196F3"))
+                }
+                "absent" -> {
+                     tvStatus.text = "Alpha"
+                     tvStatus.setTextColor(Color.parseColor("#F44336"))
+                }
+                "late" -> {
+                     tvStatus.text = "Terlambat"
+                     tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                }
             }
 
             container.addView(itemView)
@@ -162,28 +229,24 @@ class RekapKehadiranSiswa : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterData(s.toString().trim())
+                // filterData(s.toString().trim()) // Using API search instead
             }
 
-            override fun afterTextChanged(s: Editable?) {}
+            override fun afterTextChanged(s: Editable?) {
+                 fetchStudents(s.toString())
+            }
         })
 
         // BUTTON SEARCH CLEAR
         findViewById<ImageButton>(R.id.imageButton17).setOnClickListener {
             editTextSearch.text.clear()
             editTextSearch.requestFocus()
-            rekapAdapter.filter("")
+            fetchStudents(null)
             Toast.makeText(this, "Menampilkan semua data siswa", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun filterData(query: String) {
-        rekapAdapter.filter(query)
-
-        if (query.isNotEmpty() && rekapAdapter.itemCount == 0) {
-            Toast.makeText(this, "Tidak ditemukan siswa dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
-        }
-    }
+    // private fun filterData(query: String) { ... } // Removed local filter
 
     private fun showPopupMenu(view: View) {
         val popup = PopupMenu(this, view)
@@ -248,41 +311,11 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         }
     }
 
-    // Data class untuk siswa
-    data class SiswaRekap(
-        val id: Int,
-        val nama: String,
-        val nisn: String,
-        val kelas: String
-    ) {
-        // Method untuk mendapatkan data kehadiran (dummy data)
-        fun getDataKehadiran(): List<Kehadiran> {
-            return listOf(
-                Kehadiran("Senin, 7 Januari 2026", "Bahasa Indonesia / $kelas", "07:00", "Hadir", "Hadir tepat waktu"),
-                Kehadiran("Selasa, 8 Januari 2026", "Matematika / $kelas", "08:45", "Hadir", "Hadir tepat waktu"),
-                Kehadiran("Rabu, 9 Januari 2026", "Bahasa Inggris / $kelas", "10:30", "Sakit", "Izin sakit"),
-                Kehadiran("Kamis, 10 Januari 2026", "Pemrograman Dasar / $kelas", "13:15", "Izin", "Izin keluarga"),
-                Kehadiran("Jumat, 11 Januari 2026", "Basis Data / $kelas", "07:00", "Alpha", "Tidak hadir tanpa keterangan")
-            )
-        }
-    }
-
-    // Data class untuk kehadiran
-    data class Kehadiran(
-        val tanggal: String,
-        val mataPelajaran: String,
-        val jam: String,
-        val status: String,
-        val keterangan: String
-    )
-
     // Adapter untuk RecyclerView siswa
     class RekapSiswaAdapter(
-        private var dataList: List<SiswaRekap>,
-        private val onLihatClickListener: (SiswaRekap) -> Unit
+        private var dataList: List<StudentItem>,
+        private val onLihatClickListener: (StudentItem) -> Unit
     ) : RecyclerView.Adapter<RekapSiswaAdapter.SiswaViewHolder>() {
-
-        private var filteredList: List<SiswaRekap> = dataList
 
         inner class SiswaViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val tvNomor: TextView = itemView.findViewById(R.id.tvNomor)
@@ -295,7 +328,7 @@ class RekapKehadiranSiswa : AppCompatActivity() {
                 btnLihat.setOnClickListener {
                     val position = adapterPosition
                     if (position != RecyclerView.NO_POSITION) {
-                        onLihatClickListener(filteredList[position])
+                        onLihatClickListener(dataList[position])
                     }
                 }
             }
@@ -308,32 +341,17 @@ class RekapKehadiranSiswa : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: SiswaViewHolder, position: Int) {
-            val siswa = filteredList[position]
+            val siswa = dataList[position]
             holder.tvNomor.text = (position + 1).toString()
-            holder.tvNama.text = siswa.nama
-            holder.tvNisn.text = siswa.nisn
-            holder.tvKelasJurusan.text = siswa.kelas
+            holder.tvNama.text = siswa.name
+            holder.tvNisn.text = siswa.nisn ?: "-"
+            holder.tvKelasJurusan.text = siswa.className
         }
 
-        override fun getItemCount(): Int = filteredList.size
+        override fun getItemCount(): Int = dataList.size
 
-        fun filter(query: String) {
-            filteredList = if (query.isEmpty()) {
-                dataList
-            } else {
-                val lowercaseQuery = query.lowercase()
-                dataList.filter { siswa ->
-                    siswa.nama.lowercase().contains(lowercaseQuery) ||
-                            siswa.nisn.lowercase().contains(lowercaseQuery) ||
-                            siswa.kelas.lowercase().contains(lowercaseQuery)
-                }
-            }
-            notifyDataSetChanged()
-        }
-
-        fun updateData(newData: List<SiswaRekap>) {
+        fun updateData(newData: List<StudentItem>) {
             dataList = newData
-            filteredList = newData
             notifyDataSetChanged()
         }
     }
