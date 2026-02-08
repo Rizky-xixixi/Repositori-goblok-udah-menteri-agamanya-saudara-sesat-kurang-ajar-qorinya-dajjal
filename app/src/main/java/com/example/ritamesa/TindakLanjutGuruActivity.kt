@@ -10,6 +10,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.StudentFollowUpResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class TindakLanjutGuruActivity : AppCompatActivity() {
 
@@ -17,13 +23,11 @@ class TindakLanjutGuruActivity : AppCompatActivity() {
     private lateinit var etSearchKelas: EditText
     private lateinit var adapter: SiswaTindakLanjutAdapter
 
-    // Tombol navigasi footer
     private lateinit var btnHome: ImageButton
     private lateinit var btnCalendar: ImageButton
     private lateinit var btnChart: ImageButton
     private lateinit var btnNotif: ImageButton
 
-    // Data dummy semua siswa
     private val allSiswaData = mutableListOf<Map<String, Any>>()
     private val filteredSiswaData = mutableListOf<Map<String, Any>>()
 
@@ -35,10 +39,10 @@ class TindakLanjutGuruActivity : AppCompatActivity() {
             initViews()
             setupFooterNavigation()
             setupRecyclerView()
-            generateDummyData()
             setupSearchFilter()
 
-            Toast.makeText(this, "Tindak Lanjut Guru dimuat", Toast.LENGTH_SHORT).show()
+            loadDataFromApi()
+
         } catch (e: Exception) {
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             e.printStackTrace()
@@ -50,7 +54,6 @@ class TindakLanjutGuruActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.rvSiswaAbsensi)
         etSearchKelas = findViewById(R.id.etSearchKelas)
 
-        // Inisialisasi tombol navigasi footer
         btnHome = findViewById(R.id.btnHome)
         btnCalendar = findViewById(R.id.btnCalendar)
         btnChart = findViewById(R.id.btnChart)
@@ -58,34 +61,26 @@ class TindakLanjutGuruActivity : AppCompatActivity() {
     }
 
     private fun setupFooterNavigation() {
-        // Navigasi untuk GURU - Activity Tindak Lanjut
-
         btnHome.setOnClickListener {
-            val intent = Intent(this, DashboardGuruActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, DashboardGuruActivity::class.java))
         }
 
         btnCalendar.setOnClickListener {
-            val intent = Intent(this, RiwayatKehadiranGuruActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, RiwayatKehadiranGuruActivity::class.java))
         }
 
         btnChart.setOnClickListener {
-            // Sudah di halaman Tindak Lanjut Guru, refresh saja
             refreshData()
-            Toast.makeText(this, "Halaman Tindak Lanjut Guru", Toast.LENGTH_SHORT).show()
         }
 
         btnNotif.setOnClickListener {
-            val intent = Intent(this, NotifikasiGuruActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, NotifikasiGuruActivity::class.java))
         }
     }
 
     private fun refreshData() {
-        // Refresh data dengan generate ulang
-        generateDummyData()
-        Toast.makeText(this, "Data Tindak Lanjut direfresh", Toast.LENGTH_SHORT).show()
+        loadDataFromApi()
+        Toast.makeText(this, "Data direfresh", Toast.LENGTH_SHORT).show()
     }
 
     private fun setupRecyclerView() {
@@ -108,199 +103,75 @@ class TindakLanjutGuruActivity : AppCompatActivity() {
         filteredSiswaData.clear()
 
         if (query.isEmpty()) {
-            // Tampilkan hanya siswa yang bermasalah (tidak aman)
-            filteredSiswaData.addAll(allSiswaData.filter { it["showBadge"] as Boolean })
+            filteredSiswaData.addAll(allSiswaData)
         } else {
             val lowerQuery = query.lowercase()
-            // Filter berdasarkan query dan hanya yang bermasalah
             filteredSiswaData.addAll(allSiswaData.filter {
-                val showBadge = it.getOrDefault("showBadge", true) as? Boolean ?: true
-                if (!showBadge) return@filter false // Lewati yang aman
-
-                val nama = it.getOrDefault("nama", "") as String
-                val kelasJurusan = it.getOrDefault("kelasJurusan", "") as String
-                nama.lowercase().contains(lowerQuery) ||
-                        kelasJurusan.lowercase().contains(lowerQuery)
+                val nama = it["nama"] as String
+                val kelasJurusan = it["kelasJurusan"] as String
+                nama.lowercase().contains(lowerQuery) || kelasJurusan.lowercase().contains(lowerQuery)
             })
         }
 
         adapter.notifyDataSetChanged()
     }
 
-    private fun generateDummyData() {
+    private fun loadDataFromApi() {
+        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
+        
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        // Fetch ALL, filter "Aman" locally if needed
+        apiService.getStudentsFollowUp().enqueue(object : Callback<StudentFollowUpResponse> {
+            override fun onResponse(
+                call: Call<StudentFollowUpResponse>,
+                response: Response<StudentFollowUpResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val apiData = response.body()?.data ?: emptyList()
+                    processApiData(apiData)
+                } else {
+                    Toast.makeText(this@TindakLanjutGuruActivity, "Gagal memuat: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<StudentFollowUpResponse>, t: Throwable) {
+                Toast.makeText(this@TindakLanjutGuruActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun processApiData(items: List<com.example.ritamesa.data.model.StudentFollowUpItem>) {
         allSiswaData.clear()
+        
+        items.forEach { item ->
+            // Only add if NOT "Aman" (success)
+            if (item.badge.type != "success") {
+                 val badgeDrawable = when(item.badge.type) {
+                     "danger" -> R.drawable.box_danger
+                     "warning" -> R.drawable.box_warning
+                     else -> R.drawable.box_success
+                 }
 
-        // Data nama siswa
-        val namaSiswaList = listOf(
-            "Ahmad Fauzi", "Budi Santoso", "Cindy Permata", "Dedi Setiawan",
-            "Eka Wulandari", "Fajar Nugroho", "Gita Maharani", "Hendra Pratama",
-            "Indah Sari", "Joko Widodo", "Kartika Dewi", "Lukman Hakim",
-            "Maya Puspita", "Nurhayati", "Oki Setiawan", "Putri Ayu",
-            "Rizki Ramadhan", "Sari Dewi", "Toni Gunawan", "Umi Kulsum",
-            "Vina Amelia", "Wahyu Kurniawan", "Xavier Tan", "Yuni Astuti",
-            "Zainal Arifin", "Andi Wijaya", "Bunga Melati", "Cahyo Purnomo",
-            "Dina Wulandari", "Eko Susanto"
-        )
-
-        // Data kelas/jurusan SMK
-        val kelasJurusanList = listOf(
-            "XII RPL 1", "XII RPL 2", "XII TKJ 1", "XII TKJ 2",
-            "XII DKV 1", "XII DKV 2", "XII Mekatronika 1", "XII Mekatronika 2",
-            "XII Animasi 1", "XII Animasi 2", "XII EI 1", "XII EI 2"
-        )
-
-        // KOMBINASI untuk testing - HANYA SISWA YANG BERMASALAH
-        // Siswa yang TIDAK DITAMPILKAN (aman): (0, 0, 0) dan (0, 0, 1)
-        val kondisiSiswa = listOf(
-            // 1. Hanya alpha saja (2 alpha) - HARUS DITAMPILKAN
-            Triple(2, 0, 0),
-            // 2. Hanya izin > 5 (7 izin) - HARUS DITAMPILKAN
-            Triple(0, 7, 0),
-            // 3. Izin 3x + sakit 2x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 3, 2),
-            // 4. Hanya sakit saja (1 sakit) - TIDAK DITAMPILKAN (aman)
-            Triple(0, 0, 1),
-            // 5. Aman semua (0, 0, 0) - TIDAK DITAMPILKAN
-            Triple(0, 0, 0),
-            // 6. Hanya izin 2x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 2, 0),
-            // 7. Alpha 1x + izin 1x - HARUS DITAMPILKAN
-            Triple(1, 1, 0),
-            // 8. Izin 1x + sakit 1x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 1, 1),
-            // 9. Semua ada masing-masing 1x - HARUS DITAMPILKAN (karena ada alpha)
-            Triple(1, 1, 1),
-            // 10. Alpha banyak (3x) - HARUS DITAMPILKAN
-            Triple(3, 0, 0),
-            // 11. Izin banyak (10x) - HARUS DITAMPILKAN
-            Triple(0, 10, 0),
-            // 12. Sakit banyak (3x) - TIDAK DITAMPILKAN (masih dianggap aman)
-            Triple(0, 0, 3),
-            // 13. Alpha 1x + sakit 2x - HARUS DITAMPILKAN
-            Triple(1, 0, 2),
-            // 14. Izin sedang (4x) - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 4, 0),
-            // 15. Kombinasi lengkap - HARUS DITAMPILKAN (karena ada alpha)
-            Triple(2, 2, 1),
-            // 16. Aman (0, 0, 0) - TIDAK DITAMPILKAN
-            Triple(0, 0, 0),
-            // 17. Izin borderline (6x) - HARUS DITAMPILKAN
-            Triple(0, 6, 0),
-            // 18. Aman (0, 0, 0) - TIDAK DITAMPILKAN
-            Triple(0, 0, 0),
-            // 19. Alpha 1x + izin 5x - HARUS DITAMPILKAN
-            Triple(1, 5, 0),
-            // 20. Hanya sakit 2x - TIDAK DITAMPILKAN
-            Triple(0, 0, 2),
-            // 21. Hanya izin 1x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 1, 0),
-            // 22. Alpha 4x - HARUS DITAMPILKAN
-            Triple(4, 0, 0),
-            // 23. Izin 8x - HARUS DITAMPILKAN
-            Triple(0, 8, 0),
-            // 24. Aman (0, 0, 0) - TIDAK DITAMPILKAN
-            Triple(0, 0, 0),
-            // 25. Alpha 2x + izin 2x - HARUS DITAMPILKAN
-            Triple(2, 2, 0),
-            // 26. Hanya sakit 1x - TIDAK DITAMPILKAN
-            Triple(0, 0, 1),
-            // 27. Izin 3x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 3, 0),
-            // 28. Alpha 1x - HARUS DITAMPILKAN
-            Triple(1, 0, 0),
-            // 29. Izin 1x + sakit 3x - HARUS DITAMPILKAN (karena izin ≤ 5, jadi Aman)
-            Triple(0, 1, 3),
-            // 30. Aman (0, 0, 0) - TIDAK DITAMPILKAN
-            Triple(0, 0, 0)
-        )
-
-        // Generate data dummy untuk 30 siswa
-        for (i in 0 until 30) {
-            val nama = namaSiswaList.getOrNull(i) ?: "Siswa ${i+1}"
-            val kelasJurusan = kelasJurusanList[i % kelasJurusanList.size]
-            val (alphaCount, izinCount, sakitCount) = kondisiSiswa[i]
-
-            // Tentukan badge info berdasarkan kondisi
-            val badgeInfo = determineBadgeInfo(alphaCount, izinCount, sakitCount)
-
-            allSiswaData.add(mapOf(
-                "id" to i + 1,
-                "nama" to nama,
-                "kelasJurusan" to kelasJurusan,
-                "alphaCount" to alphaCount,
-                "izinCount" to izinCount,
-                "sakitCount" to sakitCount,
-
-                // Badge kanan (status)
-                "badgeDrawable" to badgeInfo["drawable"] as Int,
-                "badgeText" to badgeInfo["text"] as String,
-                "showBadge" to badgeInfo["show"] as Boolean,
-
-                // Untuk sorting
-                "severityScore" to badgeInfo["severityScore"] as Int
-            ))
+                 allSiswaData.add(mapOf(
+                     "id" to item.id,
+                     "nama" to item.name,
+                     "kelasJurusan" to item.className,
+                     "alphaCount" to item.attendanceSummary.absent,
+                     "izinCount" to item.attendanceSummary.excused, // Using excused as generic permission
+                     "sakitCount" to item.attendanceSummary.sick,
+                     
+                     "badgeDrawable" to badgeDrawable,
+                     "badgeText" to item.badge.label,
+                     "showBadge" to true,
+                     
+                     "severityScore" to item.severityScore
+                 ))
+            }
         }
 
-        // Urutkan berdasarkan severity score (yang bermasalah di atas)
-        allSiswaData.sortByDescending { it["severityScore"] as Int }
-
-        filteredSiswaData.clear()
-        // HANYA tampilkan siswa yang bermasalah (showBadge = true)
-        filteredSiswaData.addAll(allSiswaData.filter { it["showBadge"] as Boolean })
-        adapter.notifyDataSetChanged()
-
-        // Tampilkan jumlah siswa yang ditindak lanjuti
-        Toast.makeText(this, "Ditemukan ${filteredSiswaData.size} siswa perlu ditindak lanjuti", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun determineBadgeInfo(alpha: Int, izin: Int, sakit: Int): Map<String, Any> {
-        val totalCount = alpha + izin + sakit
-
-        return when {
-            // Kondisi 1: Ada alpha (minimal 1) → Sering Absensi (MERAH/DANGER)
-            // Harus ditampilkan meskipun cuma 1 alpha
-            alpha >= 1 -> mapOf(
-                "drawable" to R.drawable.box_danger,
-                "text" to "Sering Absensi",
-                "show" to true,
-                "severityScore" to (alpha * 100 + izin * 10 + sakit) // Alpha bernilai tinggi
-            )
-
-            // Kondisi 2: Izin > 5 kali → Perlu Diperhatikan (KUNING/WARNING)
-            // Harus ditampilkan jika izin > 5
-            izin > 5 -> mapOf(
-                "drawable" to R.drawable.box_warning,
-                "text" to "Perlu Diperhatikan",
-                "show" to true,
-                "severityScore" to (alpha * 100 + izin * 10 + sakit)
-            )
-
-            // Kondisi 3: Izin ≤ 5, tidak ada alpha, tapi ada absensi → Aman (HIJAU/SUCCESS)
-            // TIDAK DITAMPILKAN karena tidak bermasalah
-            totalCount > 0 -> mapOf(
-                "drawable" to R.drawable.box_success,
-                "text" to "Aman",
-                "show" to false, // TIDAK DITAMPILKAN di list tindak lanjut
-                "severityScore" to (alpha * 100 + izin * 10 + sakit)
-            )
-
-            // Kondisi 4: Tidak ada absensi sama sekali → Aman (HIJAU/SUCCESS)
-            // TIDAK DITAMPILKAN karena tidak bermasalah
-            else -> mapOf(
-                "drawable" to R.drawable.box_success,
-                "text" to "Aman",
-                "show" to false, // TIDAK DITAMPILKAN di list tindak lanjut
-                "severityScore" to 0
-            )
-        }
-    }
-
-    private fun buildBadgeText(alpha: Int, izin: Int, sakit: Int): String {
-        // Fungsi ini tidak digunakan lagi, tapi tetap dipertahankan untuk compatibility
-        return when {
-            alpha > 0 -> "Sering Absensi"
-            izin > 5 -> "Perlu Diperhatikan"
-            else -> "Aman"
-        }
+        // Apply initial filter (show all non-safe)
+        filterData(etSearchKelas.text.toString())
+        
+        Toast.makeText(this, "Menampilkan ${filteredSiswaData.size} siswa perlu ditindak lanjuti", Toast.LENGTH_SHORT).show()
     }
 }

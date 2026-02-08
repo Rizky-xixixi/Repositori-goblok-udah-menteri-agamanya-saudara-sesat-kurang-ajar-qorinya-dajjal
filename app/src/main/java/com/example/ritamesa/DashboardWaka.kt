@@ -101,9 +101,24 @@ class DashboardWaka : AppCompatActivity() {
 
             // ===== TAMBAHKAN POPUP MENU DI PROFILE =====
             try {
-                findViewById<ImageButton>(R.id.profile).setOnClickListener { view ->
+                val profileButton = findViewById<ImageButton>(R.id.profile)
+                profileButton.setOnClickListener { view ->
                     showProfileMenu(view)
                 }
+                
+                // Load profile image from session
+                val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
+                val photoUrl = sessionManager.getPhotoUrl()
+                
+                if (!photoUrl.isNullOrEmpty()) {
+                    com.bumptech.glide.Glide.with(this)
+                        .load(photoUrl)
+                        .circleCrop()
+                        .placeholder(R.drawable.profile_guru) // Fallback
+                        .error(R.drawable.profile_guru)
+                        .into(profileButton)
+                }
+                
                 Log.d(TAG, "✓ Profile button setup dengan popup menu")
             } catch (e: Exception) {
                 Log.e(TAG, "✗ Error setup profile button", e)

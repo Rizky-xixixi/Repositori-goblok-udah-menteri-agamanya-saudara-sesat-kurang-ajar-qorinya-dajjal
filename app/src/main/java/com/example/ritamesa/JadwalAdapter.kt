@@ -7,9 +7,11 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
+import com.example.ritamesa.data.model.JadwalItem
+
 class JadwalAdapter(
-    private val jadwalList: List<DashboardGuruActivity.JadwalItem>,
-    private val onItemClick: (DashboardGuruActivity.JadwalItem) -> Unit
+    private val jadwalList: List<JadwalItem>,
+    private val onItemClick: (JadwalItem) -> Unit
 ) : RecyclerView.Adapter<JadwalAdapter.JadwalViewHolder>() {
 
     class JadwalViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

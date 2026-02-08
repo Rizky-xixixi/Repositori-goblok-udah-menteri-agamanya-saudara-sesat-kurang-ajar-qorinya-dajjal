@@ -60,7 +60,15 @@ class RiwayatKehadiranSiswa : AppCompatActivity() {
             holder.textKeterangan.text = item.keterangan
 
             // Set warna teks status
-            holder.textStatus.setTextColor(resources.getColor(android.R.color.black))
+            holder.textStatus.setTextColor(when (item.statusDetail) {
+                "Tepat Waktu", "Hadir" -> holder.itemView.context.getColor(R.color.status_hadir)
+                "Terlambat" -> holder.itemView.context.getColor(R.color.status_terlambat)
+                "Izin" -> holder.itemView.context.getColor(R.color.status_izin)
+                "Sakit" -> holder.itemView.context.getColor(R.color.status_sakit)
+                "Alpha" -> holder.itemView.context.getColor(R.color.status_alpha)
+                "Pulang" -> holder.itemView.context.getColor(R.color.status_pulang)
+                else -> holder.itemView.context.getColor(R.color.black)
+            })
 
             // Set onClick untuk item - TANPA POP UP
             holder.rootView.setOnClickListener {

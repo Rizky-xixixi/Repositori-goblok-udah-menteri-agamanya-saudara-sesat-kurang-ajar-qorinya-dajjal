@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Warna untuk status kehadiran -->
-    <color name="status_hadir">#4CAF50</color>      <!-- Hijau untuk Hadir -->
-    <color name="status_sakit">#FFC107</color>      <!-- Kuning untuk Sakit -->
-    <color name="status_izin">#2196F3</color>       <!-- Biru untuk Izin -->
-    <color name="status_alpha">#F44336</color>      <!-- Merah untuk Alpha -->
+    <!-- Warna untuk status kehadiran (Standardized) -->
+    <color name="status_hadir">#1FA83D</color>
+    <color name="status_terlambat">#FFA500</color>
+    <color name="status_izin">#ACA40D</color>
+    <color name="status_sakit">#520C8F</color>
+    <color name="status_alpha">#D90000</color>
+    <color name="status_pulang">#2F85EB</color>
 
     <!-- Warna tambahan -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <color name="gray">#757575</color>
 
-
-        <color name="green">#4CAF50</color>
-        <color name="orange">#FF9800</color>
-        <color name="blue">#2196F3</color>
-        <color name="purple">#9C27B0</color>
-        <color name="red">#F44336</color>
-        <!-- Tambahkan warna lainnya sesuai kebutuhan -->
-
+    <color name="green">#1FA83D</color>
+    <color name="orange">#FFA500</color>
+    <color name="blue">#2F85EB</color>
+    <color name="purple">#520C8F</color>
+    <color name="red">#D90000</color>
+    <color name="yellow">#ACA40D</color>
 </resources>

@@ -15,8 +15,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import com.example.ritamesa.data.model.JadwalItem
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import android.util.Log
 
 class DashboardGuruActivity : AppCompatActivity() {
 
@@ -43,7 +45,7 @@ class DashboardGuruActivity : AppCompatActivity() {
     private var sakitCount = 0
     private var alphaCount = 0
 
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,22 +153,12 @@ class DashboardGuruActivity : AppCompatActivity() {
 
     private fun setupKehadiran() {
         try {
-            hadirCount = 25
-            izinCount = 1
-            sakitCount = 1
-            alphaCount = 3
+            hadirCount = 0
+            izinCount = 0
+            sakitCount = 0
+            alphaCount = 0
 
             updateKehadiranCount()
-
-            executor.schedule({
-                runOnUiThread {
-                    hadirCount += (0..2).random()
-                    izinCount += (0..1).random()
-                    sakitCount += (0..1).random()
-                    alphaCount += (0..1).random()
-                    updateKehadiranCount()
-                }
-            }, 30, TimeUnit.SECONDS)
         } catch (e: Exception) {
             Toast.makeText(this, "Error setupKehadiran: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -184,74 +176,86 @@ class DashboardGuruActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        try {
-            jadwalHariIni.clear()
-            jadwalHariIni.addAll(generateDummyJadwal())
+         // Setup empty adapter first
+         val jadwalAdapter = JadwalAdapter(jadwalHariIni) { jadwal ->
+             navigateToDetailJadwalGuru(jadwal)
+         }
 
-            val jadwalAdapter = JadwalAdapter(jadwalHariIni) { jadwal ->
-                navigateToDetailJadwalGuru(jadwal)
-            }
+         recyclerJadwal.layoutManager = LinearLayoutManager(this).apply {
+             orientation = LinearLayoutManager.VERTICAL
+         }
 
-            recyclerJadwal.layoutManager = LinearLayoutManager(this).apply {
-                orientation = LinearLayoutManager.VERTICAL
-            }
+         recyclerJadwal.adapter = jadwalAdapter
+         recyclerJadwal.setHasFixedSize(true)
 
-            recyclerJadwal.adapter = jadwalAdapter
-            recyclerJadwal.setHasFixedSize(true)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error setupRecyclerView: ${e.message}", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-        }
+         // Fetch data
+         fetchDashboardData()
     }
 
-    private fun generateDummyJadwal(): List<JadwalItem> {
-        val kelasList = listOf(
-            "XI RPL 1", "XI RPL 2", "XI RPL 3",
-            "XI Mekatronika 1", "XI Mekatronika 2",
-            "XI TKJ 1", "XI TKJ 2",
-            "XI DKV 1", "XI DKV 2",
-            "XI Animasi 1", "XI Animasi 2"
-        )
+    private fun fetchDashboardData() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        // Show loading state if needed
 
-        val mapelList = listOf(
-            "Matematika", "Bahasa Indonesia", "Pemrograman Dasar",
-            "Basis Data", "Fisika", "Kimia", "Sejarah",
-            "Seni Budaya", "PJOK", "Bahasa Inggris", "PKN"
-        )
+        apiService.getTeacherDashboard().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.DashboardGuruResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.DashboardGuruResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.DashboardGuruResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val dashboardData = response.body()
+                    if (dashboardData != null) {
+                        updateUI(dashboardData)
+                    }
+                } else {
+                    if (response.code() == 401) {
+                         Toast.makeText(this@DashboardGuruActivity, "Sesi habis, silakan login ulang", Toast.LENGTH_SHORT).show()
+                         performLogout()
+                    } else {
+                         Toast.makeText(this@DashboardGuruActivity, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
 
-        val waktuPelajaranList = listOf(
-            "Jam Pertama", "Jam Kedua", "Jam Ketiga",
-            "Jam Keempat", "Jam Kelima", "Jam Keenam",
-            "Jam Ketujuh", "Jam Kedelapan", "Jam Kesembilan",
-            "Jam Kesepuluh", "Jam Kesebelas"
-        )
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.DashboardGuruResponse>, t: Throwable) {
+                Toast.makeText(this@DashboardGuruActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e("DashboardGuru", "Error fetching dashboard", t)
+            }
+        })
+    }
 
-        val jadwalList = mutableListOf<JadwalItem>()
-        val waktuMulai = listOf(
-            "07:30", "08:15", "09:00", "09:45", "10:30",
-            "11:15", "12:00", "12:45", "13:30", "14:15", "15:00"
-        )
-        val waktuSelesai = listOf(
-            "08:15", "09:00", "09:45", "10:30", "11:15",
-            "12:00", "12:45", "13:30", "14:15", "15:00", "15:45"
-        )
+    private fun updateUI(data: com.example.ritamesa.data.model.DashboardGuruResponse) {
+        // Update Attendance Stats
+        hadirCount = data.attendance.present
+        izinCount = data.attendance.permission
+        sakitCount = data.attendance.sick
+        alphaCount = data.attendance.alpha
+        updateKehadiranCount()
 
-        for (i in 0 until 11) {
-            jadwalList.add(
-                JadwalItem(
-                    id = i + 1,
-                    mataPelajaran = mapelList[i],
-                    waktuPelajaran = waktuPelajaranList[i],
-                    kelas = kelasList[i],
-                    jam = "${waktuMulai[i]} - ${waktuSelesai[i]}",
-                    idKelas = kelasList[i].replace(" ", ""),
-                    idMapel = mapelList[i].take(3).uppercase()
-                )
-            )
+        // Update Date/Time from Server (Optional, currently using local)
+        // txtTanggalSekarang.text = data.date
+
+        // Update Profile Image
+        if (!data.teacher.photoUrl.isNullOrEmpty()) {
+             try {
+                 com.bumptech.glide.Glide.with(this)
+                     .load(data.teacher.photoUrl)
+                     .circleCrop()
+                     .placeholder(R.drawable.profile_guru) // Default fallback
+                     .error(R.drawable.profile_guru)
+                     .into(findViewById<ImageButton>(R.id.profile))
+             } catch (e: Exception) {
+                 Log.e("DashboardGuru", "Error loading profile image", e)
+             }
         }
 
-        return jadwalList
+        // Update Schedule List
+        jadwalHariIni.clear()
+        jadwalHariIni.addAll(data.schedule)
+        recyclerJadwal.adapter?.notifyDataSetChanged()
     }
+
+    // Removed generateDummyJadwal
 
     private fun navigateToDetailJadwalGuru(jadwal: JadwalItem) {
         try {
@@ -329,34 +333,16 @@ class DashboardGuruActivity : AppCompatActivity() {
     }
 
     private fun refreshDashboard() {
-        hadirCount = 25
-        izinCount = 1
-        sakitCount = 1
-        alphaCount = 3
-        updateKehadiranCount()
-
-        jadwalHariIni.clear()
-        jadwalHariIni.addAll(generateDummyJadwal())
-
-        val adapter = recyclerJadwal.adapter
-        adapter?.notifyItemRangeChanged(0, jadwalHariIni.size)
+        Toast.makeText(this, "Memuat ulang data...", Toast.LENGTH_SHORT).show()
+        fetchDashboardData()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(runnable)
-        executor.shutdownNow()
     }
 
-    data class JadwalItem(
-        val id: Int,
-        val mataPelajaran: String,
-        val waktuPelajaran: String,
-        val kelas: String,
-        val jam: String,
-        val idKelas: String,
-        val idMapel: String
-    )
+
 
     data class JadwalData(
         val mataPelajaran: String,

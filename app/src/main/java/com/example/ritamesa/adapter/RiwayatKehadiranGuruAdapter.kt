@@ -34,11 +34,12 @@ class RiwayatKehadiranGuruAdapter(private val dataList: List<RiwayatKehadiranGur
 
         holder.textStatus.text = data.status
         holder.textStatus.setTextColor(when (data.status) {
-            "Hadir" -> holder.itemView.context.getColor(R.color.green)
-            "Terlambat" -> holder.itemView.context.getColor(R.color.orange)
-            "Izin" -> holder.itemView.context.getColor(R.color.blue)
-            "Sakit" -> holder.itemView.context.getColor(R.color.purple)
-            "Alpha" -> holder.itemView.context.getColor(R.color.red)
+            "Hadir" -> holder.itemView.context.getColor(R.color.status_hadir)
+            "Terlambat" -> holder.itemView.context.getColor(R.color.status_terlambat)
+            "Izin" -> holder.itemView.context.getColor(R.color.status_izin)
+            "Sakit" -> holder.itemView.context.getColor(R.color.status_sakit)
+            "Alpha" -> holder.itemView.context.getColor(R.color.status_alpha)
+            "Pulang" -> holder.itemView.context.getColor(R.color.status_pulang)
             else -> holder.itemView.context.getColor(R.color.black)
         })
 

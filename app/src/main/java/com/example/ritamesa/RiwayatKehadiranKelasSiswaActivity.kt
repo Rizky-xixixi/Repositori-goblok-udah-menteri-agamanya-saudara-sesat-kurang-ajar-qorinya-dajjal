@@ -13,6 +13,12 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.StudentAttendanceItem
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,13 +30,11 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
     private lateinit var txtSakitCount: TextView
     private lateinit var txtAlphaCount: TextView
     private lateinit var txtFilterTanggal: TextView
-
-    // PERHATIAN: Di layout siswa, ini adalah ImageButton
     private lateinit var btnCalendar: ImageButton
 
     private val riwayatList = mutableListOf<RiwayatSiswaItem>()
 
-    // Data dummy statistik
+    // Statistics vars
     private var totalHadir = 0
     private var totalIzin = 0
     private var totalSakit = 0
@@ -40,44 +44,30 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.riwayat_kehadiran_kelas_siswa)
 
-        // Inisialisasi views
         initViews()
-
-        // Setup statistik
-        setupStatistik()
-
-        // Setup RecyclerView
         setupRecyclerView()
-
-        // Setup tombol navigasi
         setupButtonListeners()
-
-        // SETUP BACK PRESS HANDLER
         setupBackPressedHandler()
+
+        // Load data from API
+        loadDataFromApi()
     }
 
     private fun initViews() {
-        // TextView untuk statistik
         txtHadirCount = findViewById(R.id.txt_hadir_count)
         txtIzinCount = findViewById(R.id.txt_izin_count)
         txtSakitCount = findViewById(R.id.txt_sakit_count)
         txtAlphaCount = findViewById(R.id.txt_alpha_count)
-
-        // TextView lainnya
+        
         val txtJumlah: TextView = findViewById(R.id.text_jumlah_siswa)
         txtFilterTanggal = findViewById(R.id.text_filter_tanggal)
-
-        // PERHATIAN: Di layout siswa, id nya adalah icon_calendar (ImageButton)
         btnCalendar = findViewById(R.id.icon_calendar)
 
-        // Sembunyikan tombol kalender karena tidak ada filter tanggal
         btnCalendar.visibility = View.GONE
-
-        // SET TEKS SEDERHANA
-        txtJumlah.text = "Total Mata Pelajaran: 6"
+        txtJumlah.text = "Riwayat Kehadiran Anda" 
+        
         updateTanggalDisplay()
-
-        // RecyclerView
+        
         recyclerRiwayat = findViewById(R.id.recycler_riwayat)
     }
 
@@ -86,125 +76,128 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
             val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id", "ID"))
             val currentDate = Date()
             val formatted = sdf.format(currentDate)
-
-            val finalDate = if (formatted.isNotEmpty()) {
-                formatted[0].uppercaseChar() + formatted.substring(1)
-            } else {
-                formatted
-            }
-
+            val finalDate = if (formatted.isNotEmpty()) formatted[0].uppercaseChar() + formatted.substring(1) else formatted
             txtFilterTanggal.text = finalDate
         } catch (e: Exception) {
             Toast.makeText(this, "Error format tanggal", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun setupStatistik() {
-        // Hitung statistik dari data dummy
-        calculateStatistics()
-
-        // Tampilkan statistik
-        txtHadirCount.text = totalHadir.toString()
-        txtIzinCount.text = totalIzin.toString()
-        txtSakitCount.text = totalSakit.toString()
-        txtAlphaCount.text = totalAlpha.toString()
-    }
-
-    private fun calculateStatistics() {
-        // Reset counter
-        totalHadir = 0
-        totalIzin = 0
-        totalSakit = 0
-        totalAlpha = 0
-
-        // Data dummy untuk siswa
-        val dummyData = listOf(
-            RiwayatSiswaItem("1-2", "B. Indonesia",  "Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("3-4", "Matematika",    "Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("5-6", "IPAS",           "Izin Sakit",        "izin"),
-            RiwayatSiswaItem("7-8", "Bahasa Inggris","Hadir Tepat Waktu", "hadir"),
-            RiwayatSiswaItem("9"  , "Bahasa Jawa", "Tanpa Keterangan", "tidak hadir"),
-            RiwayatSiswaItem("10" , "Seni Budaya",   "Sakit",             "sakit")
-        )
-
-        // Hitung statistik
-        dummyData.forEach { item ->
-            when (item.status.toLowerCase()) {
-                "hadir" -> totalHadir++
-                "izin" -> totalIzin++
-                "sakit" -> totalSakit++
-                "tidak hadir" -> totalAlpha++
-            }
-        }
-
-        // Tambahkan ke list
-        riwayatList.clear()
-        riwayatList.addAll(dummyData)
-    }
-
     private fun setupRecyclerView() {
-        try {
-            recyclerRiwayat.layoutManager = LinearLayoutManager(this)
-            recyclerRiwayat.setHasFixedSize(true)
-
-            val adapter = RiwayatSiswaAdapter(riwayatList)
-            recyclerRiwayat.adapter = adapter
-
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error loading data", Toast.LENGTH_SHORT).show()
-        }
+        recyclerRiwayat.layoutManager = LinearLayoutManager(this)
+        recyclerRiwayat.setHasFixedSize(true)
+        val adapter = RiwayatSiswaAdapter(riwayatList)
+        recyclerRiwayat.adapter = adapter
     }
 
-    private fun setupButtonListeners() {
-        val btnHome: View = findViewById(R.id.btnHome)
-        val btnAssignment: View = findViewById(R.id.btnAssignment)
-        val textNavigasi: TextView = findViewById(R.id.text_navigasi)
+    private fun loadDataFromApi() {
+        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
+        
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        // Fetch current month by default or ALL? Let's fetch ALL (no params)
+        apiService.getStudentAttendanceHistory().enqueue(object : Callback<List<StudentAttendanceItem>> {
+            override fun onResponse(
+                call: Call<List<StudentAttendanceItem>>,
+                response: Response<List<StudentAttendanceItem>>
+            ) {
+                if (response.isSuccessful) {
+                    val items = response.body() ?: emptyList()
+                    processApiData(items)
+                } else {
+                    Toast.makeText(this@RiwayatKehadiranKelasSiswaActivity, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
 
-        // Tombol Home - kembali ke dashboard
-        btnHome.setOnClickListener {
-            navigateToDashboard()
-        }
-
-        // Tombol Assignment - sudah di halaman ini
-        btnAssignment.setOnClickListener {
-            Toast.makeText(this, "Anda sudah di Riwayat Kehadiran", Toast.LENGTH_SHORT).show()
-        }
-
-        // Text Navigasi - navigasi ke Jadwal Harian
-        textNavigasi.setOnClickListener {
-            navigateToJadwalHarian()
-        }
-    }
-
-    private fun setupBackPressedHandler() {
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                navigateToDashboard()
+            override fun onFailure(call: Call<List<StudentAttendanceItem>>, t: Throwable) {
+                Toast.makeText(this@RiwayatKehadiranKelasSiswaActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
+    private fun processApiData(items: List<StudentAttendanceItem>) {
+        riwayatList.clear()
+        
+        totalHadir = 0; totalIzin = 0; totalSakit = 0; totalAlpha = 0
+
+        items.forEach { item ->
+            val statusLocal = when (item.status) {
+                "present" -> "hadir"
+                "late" -> "hadir"
+                "sick" -> "sakit"
+                "excused" -> "izin"
+                "absent" -> "tidak hadir" // Maps to alpha logic in Adapter
+                else -> "tidak hadir"
+            }
+
+            val keterangan = when (item.status) {
+                "present" -> "Hadir Tepat Waktu"
+                "late" -> "Terlambat"
+                "sick" -> "Sakit"
+                "excused" -> "Izin"
+                else -> "Tanpa Keterangan"
+            }
+
+            // Update stats
+            when (statusLocal) {
+                "hadir" -> totalHadir++
+                "sakit" -> totalSakit++
+                "izin" -> totalIzin++
+                "tidak hadir" -> totalAlpha++
+            }
+            
+            val timeRange = "${item.schedule?.startTime ?: ""} - ${item.schedule?.endTime ?: ""}"
+            
+            riwayatList.add(RiwayatSiswaItem(
+                id = timeRange, // Replacing "1-2" with time range
+                mataPelajaran = item.schedule?.subjectInfo?.name ?: "Unknown",
+                keterangan = keterangan,
+                status = statusLocal
+            ))
+        }
+
+        // Update UI
+        txtHadirCount.text = totalHadir.toString()
+        txtIzinCount.text = totalIzin.toString()
+        txtSakitCount.text = totalSakit.toString()
+        txtAlphaCount.text = totalAlpha.toString()
+        
+        recyclerRiwayat.adapter?.notifyDataSetChanged()
+        
+        val count = riwayatList.size
+        findViewById<TextView>(R.id.text_jumlah_siswa).text = "Total Kehadiran: $count"
+    }
+
+    private fun setupButtonListeners() {
+        findViewById<View>(R.id.btnHome).setOnClickListener { navigateToDashboard() }
+        findViewById<View>(R.id.btnAssignment).setOnClickListener { 
+            Toast.makeText(this, "Anda sudah di Riwayat Kehadiran", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<TextView>(R.id.text_navigasi).setOnClickListener { navigateToJadwalHarian() }
+    }
+
+    private fun setupBackPressedHandler() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { navigateToDashboard() }
+        })
+    }
+
     private fun navigateToDashboard() {
-        val intent = Intent(this, DashboardSiswaActivity::class.java)
-        startActivity(intent)
+        startActivity(Intent(this, DashboardSiswaActivity::class.java))
         finish()
-        Toast.makeText(this, "Kembali ke Dashboard", Toast.LENGTH_SHORT).show()
     }
 
     private fun navigateToJadwalHarian() {
         val intent = Intent(this, JadwalHarianSiswaActivity::class.java).apply {
-            putExtra("IS_PENGURUS", false) // false karena ini untuk siswa
+            putExtra("IS_PENGURUS", false)
         }
         startActivity(intent)
-        Toast.makeText(this, "Melihat Jadwal Harian", Toast.LENGTH_SHORT).show()
     }
 
-    // ========== ADAPTER UNTUK SISWA ==========
     private inner class RiwayatSiswaAdapter(
         private val riwayatList: List<RiwayatSiswaItem>
-    ) : androidx.recyclerview.widget.RecyclerView.Adapter<RiwayatSiswaAdapter.RiwayatViewHolder>() {
+    ) : RecyclerView.Adapter<RiwayatSiswaAdapter.RiwayatViewHolder>() {
 
-        inner class RiwayatViewHolder(itemView: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
+        inner class RiwayatViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val txtSession: TextView = itemView.findViewById(R.id.Session)
             val txtMataPelajaran: TextView = itemView.findViewById(R.id.MataPelajaran)
             val txtKeterangan: TextView = itemView.findViewById(R.id.TextKeteranganAbsen)
@@ -219,12 +212,10 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: RiwayatViewHolder, position: Int) {
             val riwayat = riwayatList[position]
-
-            holder.txtSession.text = "Jam ${riwayat.id}"
+            holder.txtSession.text = riwayat.id // Now shows Time
             holder.txtMataPelajaran.text = riwayat.mataPelajaran
             holder.txtKeterangan.text = riwayat.keterangan
 
-            // Set badge berdasarkan status
             when (riwayat.status.toLowerCase()) {
                 "hadir" -> holder.imgBadge.setImageResource(R.drawable.siswa_hadir_wakel)
                 "izin" -> holder.imgBadge.setImageResource(R.drawable.siswa_izin_wakel)
@@ -236,11 +227,10 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         override fun getItemCount(): Int = riwayatList.size
     }
 
-    // ========== DATA CLASS UNTUK SISWA ==========
     data class RiwayatSiswaItem(
         val id: String,
         val mataPelajaran: String,
         val keterangan: String,
-        val status: String // hadir, izin, sakit, alpha
+        val status: String 
     )
 }

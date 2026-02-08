@@ -3,24 +3,24 @@ package com.example.ritamesa
 import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.MajorResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class TotalJurusan : AppCompatActivity() {
 
     // ===== DATA LIST =====
-    private val listJurusanDummy = arrayListOf(
-        Jurusan(1, "Mekatronika", "111"),
-        Jurusan(2, "Rekayasa Perangkat Lunak", "222"),
-        Jurusan(3, "Teknik Komputer Jaringan", "333"),
-        Jurusan(4, "Desain Komunikasi Visual", "444"),
-        Jurusan(5, "Elektronika Industri", "555"),
-        Jurusan(6, "Animasi", "666"),
-        Jurusan(7, "Broadcasting", "777"),
-        Jurusan(8, "Audio Video", "888")
-    )
+    private val listJurusanRaw = ArrayList<Jurusan>() // Data asli dari API
+    private val listJurusanDisplay = ArrayList<Jurusan>() // Data yang ditampilkan (bisa difilter)
 
     // ===== COMPONENTS =====
     private lateinit var recyclerView: RecyclerView
@@ -34,6 +34,9 @@ class TotalJurusan : AppCompatActivity() {
         initView()
         setupRecyclerView()
         setupActions()
+        
+        // Fetch data dari API
+        fetchJurusanData()
     }
 
     private fun initView() {
@@ -47,37 +50,67 @@ class TotalJurusan : AppCompatActivity() {
         recyclerView.setHasFixedSize(true)
 
         jurusanAdapter = JurusanAdapter(
-            listJurusanDummy,
+            listJurusanDisplay,
             onEditClickListener = { jurusan ->
-                val position = listJurusanDummy.indexOfFirst { it.id == jurusan.id }
-                if (position != -1) {
-                    showEditDialog(jurusan, position)
-                }
+                // Edit not implemented for API yet, show toast
+                Toast.makeText(this, "Edit fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
             },
             onDeleteClickListener = { jurusan ->
-                val position = listJurusanDummy.indexOfFirst { it.id == jurusan.id }
-                if (position != -1) {
-                    showDeleteConfirmation(jurusan, position)
-                }
+                // Delete not implemented for API yet, show toast
+                Toast.makeText(this, "Hapus fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
+                // Untuk simulasi hapus lokal:
+                // showDeleteConfirmation(jurusan, listJurusanDisplay.indexOf(jurusan))
             }
         )
         recyclerView.adapter = jurusanAdapter
     }
 
+    private fun fetchJurusanData() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        
+        // Show loading (optional, toast for now)
+        Toast.makeText(this, "Memuat data jurusan...", Toast.LENGTH_SHORT).show()
+
+        apiService.getMajors().enqueue(object : Callback<MajorResponse> {
+            override fun onResponse(call: Call<MajorResponse>, response: Response<MajorResponse>) {
+                if (response.isSuccessful && response.body() != null) {
+                    val majors = response.body()!!.data
+                    
+                    listJurusanRaw.clear()
+                    listJurusanRaw.addAll(majors)
+                    
+                    listJurusanDisplay.clear()
+                    listJurusanDisplay.addAll(majors)
+                    
+                    jurusanAdapter.updateData(listJurusanDisplay)
+                    Toast.makeText(this@TotalJurusan, "Data berhasil dimuat: ${majors.size} jurusan", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@TotalJurusan, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<MajorResponse>, t: Throwable) {
+                Toast.makeText(this@TotalJurusan, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e("TotalJurusan", "Error fetching majors", t)
+            }
+        })
+    }
+
     private fun setupActions() {
         // BUTTON BACK
-        findViewById<ImageButton>(R.id.imageView36).setOnClickListener {
+        findViewById<View>(R.id.imageView36).setOnClickListener {
             finish()
         }
 
         // BUTTON TAMBAH
         val btnTambah = findViewById<LinearLayout>(R.id.imageButton23)
         btnTambah.setOnClickListener {
-            showAddDialog()
+            Toast.makeText(this, "Fitur Tambah belum tersedia untuk API", Toast.LENGTH_SHORT).show()
+            // showAddDialog() 
         }
 
         // BUTTON SEARCH
-        findViewById<ImageButton>(R.id.imageButton17).setOnClickListener {
+        findViewById<View>(R.id.imageButton17).setOnClickListener {
             searchJurusan()
         }
 
@@ -96,9 +129,9 @@ class TotalJurusan : AppCompatActivity() {
     private fun searchJurusan() {
         val query = editTextSearch.text.toString().trim()
         val filteredList = if (query.isEmpty()) {
-            listJurusanDummy
+            listJurusanRaw
         } else {
-            listJurusanDummy.filter {
+            listJurusanRaw.filter {
                 it.KonsentrasiKeahlian.contains(query, true) ||
                         it.Kodejurusan.contains(query, true)
             }
@@ -108,135 +141,14 @@ class TotalJurusan : AppCompatActivity() {
             Toast.makeText(this, "Tidak ditemukan jurusan dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
         }
 
-        jurusanAdapter.updateData(filteredList)
+        listJurusanDisplay.clear()
+        listJurusanDisplay.addAll(filteredList)
+        jurusanAdapter.updateData(listJurusanDisplay)
     }
 
-    private fun showAddDialog() {
-        try {
-            val dialog = Dialog(this)
-            dialog.setContentView(R.layout.pop_up_tambah_jurusan)
-            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            dialog.setCancelable(true)
-
-            // Set ukuran dialog
-            dialog.window?.setLayout(
-                (resources.displayMetrics.widthPixels * 0.9).toInt(),
-                android.view.WindowManager.LayoutParams.WRAP_CONTENT
-            )
-
-            // PERBAIKAN: Gunakan ID yang benar dari XML
-            val inputNama = dialog.findViewById<EditText>(R.id.et_nama_jurusan)
-            val inputKode = dialog.findViewById<EditText>(R.id.et_kode_jurusan)
-            val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
-            val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
-
-            btnBatal.setOnClickListener {
-                dialog.dismiss()
-            }
-
-            btnSimpan.setOnClickListener {
-                val namaJurusan = inputNama.text.toString().trim()
-                val kodeJurusan = inputKode.text.toString().trim()
-
-                if (namaJurusan.isEmpty() || kodeJurusan.isEmpty()) {
-                    Toast.makeText(this, "Harap isi semua field!", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                // Cek duplikasi kode jurusan
-                val isKodeExist = listJurusanDummy.any { it.Kodejurusan == kodeJurusan }
-                if (isKodeExist) {
-                    Toast.makeText(this, "Kode jurusan sudah digunakan!", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                val newId = if (listJurusanDummy.isNotEmpty()) listJurusanDummy.last().id + 1 else 1
-                val newJurusan = Jurusan(newId, namaJurusan, kodeJurusan)
-                listJurusanDummy.add(newJurusan)
-                jurusanAdapter.updateData(listJurusanDummy)
-                Toast.makeText(this, "Data jurusan berhasil ditambahkan", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-
-            dialog.show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            e.printStackTrace()
-        }
-    }
-
-    private fun showEditDialog(jurusan: Jurusan, position: Int) {
-        try {
-            val dialog = Dialog(this)
-            dialog.setContentView(R.layout.pop_up_edit_jurusan)
-            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            dialog.setCancelable(true)
-
-            // Set ukuran dialog
-            dialog.window?.setLayout(
-                (resources.displayMetrics.widthPixels * 0.9).toInt(),
-                android.view.WindowManager.LayoutParams.WRAP_CONTENT
-            )
-
-            // PERBAIKAN: Gunakan ID yang benar dari XML
-            val inputNama = dialog.findViewById<EditText>(R.id.et_nama_jurusan)
-            val inputKode = dialog.findViewById<EditText>(R.id.et_kode_jurusan)
-            val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
-            val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
-
-            // Isi data yang akan diedit
-            inputNama.setText(jurusan.KonsentrasiKeahlian)
-            inputKode.setText(jurusan.Kodejurusan)
-
-            btnBatal.setOnClickListener {
-                dialog.dismiss()
-            }
-
-            btnSimpan.setOnClickListener {
-                val namaJurusan = inputNama.text.toString().trim()
-                val kodeJurusan = inputKode.text.toString().trim()
-
-                if (namaJurusan.isEmpty() || kodeJurusan.isEmpty()) {
-                    Toast.makeText(this, "Harap isi semua field!", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                // Cek duplikasi kode jurusan (kecuali untuk data yang sedang diedit)
-                val isKodeExist = listJurusanDummy.any {
-                    it.Kodejurusan == kodeJurusan && it.id != jurusan.id
-                }
-                if (isKodeExist) {
-                    Toast.makeText(this, "Kode jurusan sudah digunakan!", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                listJurusanDummy[position] = Jurusan(
-                    jurusan.id,
-                    namaJurusan,
-                    kodeJurusan
-                )
-                jurusanAdapter.updateData(listJurusanDummy)
-                Toast.makeText(this, "Data jurusan berhasil diperbarui", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-
-            dialog.show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            e.printStackTrace()
-        }
-    }
-
+    // Dialog methods commented out or kept as placeholder for future implementation
+    
     private fun showDeleteConfirmation(jurusan: Jurusan, position: Int) {
-        AlertDialog.Builder(this)
-            .setTitle("Konfirmasi Hapus")
-            .setMessage("Apakah Anda yakin akan menghapus data jurusan ${jurusan.KonsentrasiKeahlian}?")
-            .setPositiveButton("Ya, Hapus") { _, _ ->
-                listJurusanDummy.removeAt(position)
-                jurusanAdapter.updateData(listJurusanDummy)
-                Toast.makeText(this, "Data jurusan berhasil dihapus", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Batal", null)
-            .show()
+         // Local delete logic
     }
 }

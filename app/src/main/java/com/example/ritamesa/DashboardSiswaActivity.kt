@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
+import com.example.ritamesa.data.model.JadwalItem
 import java.util.*
 
 class DashboardSiswaActivity : AppCompatActivity() {
@@ -188,53 +189,102 @@ class DashboardSiswaActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        try {
-            jadwalHariIni.clear()
-            jadwalHariIni.addAll(generateDummyJadwal())
+        // Setup empty adapter first
+        val adapter = JadwalSiswaAdapter(jadwalHariIni)
+        recyclerJadwal.layoutManager = LinearLayoutManager(this)
+        recyclerJadwal.setHasFixedSize(true)
+        recyclerJadwal.adapter = adapter
 
-            Log.d(TAG, "Setting up RecyclerView with ${jadwalHariIni.size} items")
-
-            recyclerJadwal.layoutManager = LinearLayoutManager(this)
-            recyclerJadwal.setHasFixedSize(true)
-
-            val adapter = JadwalSiswaAdapter(jadwalHariIni)
-            recyclerJadwal.adapter = adapter
-            adapter.notifyDataSetChanged()
-
-            Log.d(TAG, "RecyclerView setup COMPLETE")
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in setupRecyclerView: ${e.message}", e)
-            Toast.makeText(this, "Error loading schedule", Toast.LENGTH_SHORT).show()
-        }
+        // Fetch data
+        fetchDashboardData()
     }
 
-    private fun generateDummyJadwal(): List<JadwalSiswaItem> {
-        val jadwalList = mutableListOf<JadwalSiswaItem>()
+    private fun fetchDashboardData() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
 
-        val dataJadwal = listOf(
-            DataJadwal("Jam Ke 1-3", "B. Indonesia", "Hadir", "07:10"),
-            DataJadwal("Jam Ke 4-5", "Matematika", "Hadir", "09:00"),
-            DataJadwal("Jam Ke 6-7", "IPA", "Hadir", "10:40"),
-            DataJadwal("Jam Ke 8-10", "Bahasa Inggris", "Hadir", "12:45"),
-        )
+        apiService.getStudentDashboard().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.DashboardSiswaResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.DashboardSiswaResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.DashboardSiswaResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val dashboardData = response.body()
+                    if (dashboardData != null) {
+                        updateUI(dashboardData)
+                    }
+                } else {
+                     if (response.code() == 401) {
+                         Toast.makeText(this@DashboardSiswaActivity, "Sesi habis, silakan login ulang", Toast.LENGTH_SHORT).show()
+                         performLogout()
+                     } else {
+                         Toast.makeText(this@DashboardSiswaActivity, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                     }
+                }
+            }
 
-        for ((index, data) in dataJadwal.withIndex()) {
-            jadwalList.add(
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.DashboardSiswaResponse>, t: Throwable) {
+                Toast.makeText(this@DashboardSiswaActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Error fetching dashboard", t)
+            }
+        })
+    }
+
+    private fun updateUI(data: com.example.ritamesa.data.model.DashboardSiswaResponse) {
+        // Update Schedule List
+        jadwalHariIni.clear()
+        
+        // Map API response to local model
+        data.schedule.forEach { apiItem ->
+            val statusLabel = apiItem.statusLabel ?: "Belum Absen"
+            val displayStatus = if (apiItem.status == "present") "Hadir" else statusLabel
+            
+            jadwalHariIni.add(
                 JadwalSiswaItem(
-                    id = index + 1,
-                    sesi = data.sesi,
-                    mataPelajaran = data.mapel,
-                    status = data.status,
-                    jam = data.jam,
-                    keterangan = "Siswa ${data.status} ${if (data.status == "Hadir") "Tepat Waktu" else ""}"
+                    id = apiItem.id,
+                    sesi = apiItem.jam, 
+                    mataPelajaran = apiItem.mataPelajaran,
+                    status = apiItem.status ?: "none",
+                    jam = "${apiItem.startTime} - ${apiItem.endTime}",
+                    keterangan = displayStatus
                 )
             )
         }
-
-        Log.d(TAG, "Generated ${jadwalList.size} jadwal items")
-        return jadwalList
+        
+        recyclerJadwal.adapter?.notifyDataSetChanged()
+        
+        // Update Profile Image
+        if (!data.student.photoUrl.isNullOrEmpty()) {
+            try {
+                // Determine default placeholder based on role
+                val defaultPlaceholder = if (isPengurus) R.drawable.profile_pengurus else R.drawable.profile_siswa
+                val smallPlaceholder = R.drawable.profile_p
+                
+                // Load into small profile icon (overlay/toolbar)
+                com.bumptech.glide.Glide.with(this)
+                    .load(data.student.photoUrl)
+                    .circleCrop()
+                    .placeholder(smallPlaceholder)
+                    .error(smallPlaceholder)
+                    .into(profileOverlay)
+                    
+                // Load into big profile image
+                com.bumptech.glide.Glide.with(this)
+                    .load(data.student.photoUrl)
+                    .circleCrop()
+                    .placeholder(defaultPlaceholder)
+                    .error(defaultPlaceholder)
+                    .into(profileSiswa)
+                    
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading profile image", e)
+            }
+        }
+        
+        // Update Date if needed
+        // txtTanggalSekarang.text = data.date
     }
+
+    // Removed generateDummyJadwal
 
     private fun setupButtonListeners() {
         try {
@@ -372,10 +422,5 @@ class DashboardSiswaActivity : AppCompatActivity() {
         val keterangan: String
     )
 
-    data class DataJadwal(
-        val sesi: String,
-        val mapel: String,
-        val status: String,
-        val jam: String
-    )
+
 }

@@ -93,101 +93,74 @@ class LoginLanjut : AppCompatActivity() {
             val username = edtUsername.text.toString().trim()
             val password = edtPassword.text.toString().trim()
 
-            // Validasi berdasarkan role
-            when (selectedRole) {
-                "Admin" -> {
-                    if (username.isEmpty() || password.isEmpty()) {
-                        Toast.makeText(this, "Email dan kata sandi harus diisi", Toast.LENGTH_SHORT).show()  // DIUBAH
-                        return@setOnClickListener
-                    }
-                    validateAdmin(username, password)
-                }
-
-                "Waka", "Guru", "Wali Kelas" -> {
-                    if (username.isEmpty() || password.isEmpty()) {
-                        Toast.makeText(this, "Kode guru dan kata sandi harus diisi", Toast.LENGTH_SHORT).show()  // DIUBAH
-                        return@setOnClickListener
-                    }
-                    validateStaff(username, password)
-                }
-
-                "Siswa", "Pengurus" -> {
-                    if (username.isEmpty()) {
-                        Toast.makeText(this, "NISN harus diisi", Toast.LENGTH_SHORT).show()
-                        return@setOnClickListener
-                    }
-                    validateSiswa(username, isPengurus = selectedRole == "Pengurus")
-                }
-
-                else -> {
-                    Toast.makeText(this, "Role tidak valid", Toast.LENGTH_SHORT).show()
-                }
+            if (username.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "Harap isi semua kolom", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            performLogin(username, password)
         }
     }
 
-    private fun validateAdmin(username: String, password: String) {
-        when {
-            username == "admin" && password == "admin123" -> {
-                Toast.makeText(this, "Login sebagai Admin", Toast.LENGTH_SHORT).show()
-                navigateToAdminDashboard()
+    private fun performLogin(emailOrId: String, password: String) {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        val request = com.example.ritamesa.data.model.LoginRequest(emailOrId, password)
+
+        // Show loading (optional: add progress bar)
+        Toast.makeText(this, "Sedang masuk...", Toast.LENGTH_SHORT).show()
+
+        apiService.login(request).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.LoginResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.LoginResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.LoginResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val loginResponse = response.body()
+                    if (loginResponse != null) {
+                        saveSessionAndNavigate(loginResponse)
+                    } else {
+                        Toast.makeText(this@LoginLanjut, "Respon kosong", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(this@LoginLanjut, "Login gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
             }
-            username == "99999" && password == "admin999" -> {
-                Toast.makeText(this, "Login sebagai Admin", Toast.LENGTH_SHORT).show()
-                navigateToAdminDashboard()
+
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.LoginResponse>, t: Throwable) {
+                Toast.makeText(this@LoginLanjut, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Login error", t)
             }
-            else -> {
-                Toast.makeText(this, "Email atau kata sandi salah", Toast.LENGTH_SHORT).show()  // DIUBAH
-            }
-        }
+        })
     }
 
-    private fun validateStaff(kodeGuru: String, password: String) {
-        when (selectedRole) {
-            "Waka" -> {
-                if (kodeGuru == "waka" && password == "waka123") {
-                    Toast.makeText(this, "Login sebagai Waka", Toast.LENGTH_SHORT).show()
-                    navigateToWakaDashboard()
-                } else {
-                    Toast.makeText(this, "Kode guru atau kata sandi salah", Toast.LENGTH_SHORT).show()  // DIUBAH
-                }
-            }
-            "Guru" -> {
-                if ((kodeGuru == "guru" && password == "guru123") ||
-                    (kodeGuru == "12345" && password == "guru123")) {
-                    Toast.makeText(this, "Login sebagai Guru", Toast.LENGTH_SHORT).show()
-                    navigateToGuruDashboard()
-                } else {
-                    Toast.makeText(this, "Kode guru atau kata sandi salah", Toast.LENGTH_SHORT).show()  // DIUBAH
-                }
-            }
-            "Wali Kelas" -> {
-                if ((kodeGuru == "wali" && password == "wali123") ||
-                    (kodeGuru == "54321" && password == "wakel123")) {
-                    Toast.makeText(this, "Login sebagai Wali Kelas", Toast.LENGTH_SHORT).show()
-                    navigateToWaliKelasDashboard()
-                } else {
-                    Toast.makeText(this, "Kode guru atau kata sandi salah", Toast.LENGTH_SHORT).show()  // DIUBAH
-                }
-            }
-        }
-    }
+    private fun saveSessionAndNavigate(response: com.example.ritamesa.data.model.LoginResponse) {
+        val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
+        sessionManager.saveAuthToken(response.access_token)
+        sessionManager.saveUserRole(response.user.role)
+        sessionManager.saveUserDetails(response.user.id.toString(), response.user.name)
+        sessionManager.savePhotoUrl(response.user.profile?.photoUrl)
+        sessionManager.setLoggedIn(true)
 
-    private fun validateSiswa(nisn: String, isPengurus: Boolean) {
-        if (isPengurus) {
-            if (nisn == "pengurus") {
-                Toast.makeText(this, "Login sebagai Pengurus Kelas", Toast.LENGTH_SHORT).show()
-                navigateToSiswaDashboard(true)
-            } else {
-                Toast.makeText(this, "NISN pengurus tidak valid", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Login berhasil sebagai ${response.user.role}", Toast.LENGTH_SHORT).show()
+
+        // Sesuaikan navigasi dengan role dari backend
+        // Backend roles: admin, teacher, student
+        when (response.user.role) {
+            "admin" -> navigateToAdminDashboard()
+            "teacher" -> {
+                 // Cek selectedRole dari halaman sebelumnya untuk membedakan Guru/Wali/Waka
+                 // atau biarkan user memilih dashboard?
+                 // Untuk simplifikasi, kita arahkan ke Dashboard Guru dulu
+                 // Nanti bisa dikembangkan logika Waka/WaliKelas jika backend support role detail
+                 if (selectedRole == "Wali Kelas") navigateToWaliKelasDashboard()
+                 else if (selectedRole == "Waka") navigateToWakaDashboard()
+                 else navigateToGuruDashboard()
             }
-        } else {
-            if (nisn == "siswa") {
-                Toast.makeText(this, "Login sebagai Siswa", Toast.LENGTH_SHORT).show()
-                navigateToSiswaDashboard(false)
-            } else {
-                Toast.makeText(this, "NISN tidak valid", Toast.LENGTH_SHORT).show()
+            "student" -> {
+                 val isPengurus = selectedRole == "Pengurus" // Atau cek dari response jika ada flag pengurus
+                 navigateToSiswaDashboard(isPengurus)
             }
+            else -> Toast.makeText(this, "Role tidak dikenali: ${response.user.role}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -247,4 +220,6 @@ class LoginLanjut : AppCompatActivity() {
             Log.e(TAG, "Failed to open siswa dashboard: ${e.message}", e)
         }
     }
+
+    // Remove legacy validation methods
 }
