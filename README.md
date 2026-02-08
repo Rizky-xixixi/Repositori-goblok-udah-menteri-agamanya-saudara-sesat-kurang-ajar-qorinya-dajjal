@@ -66,6 +66,56 @@ Before building the app, you MUST configure the API endpoint:
    ```
 3. Update the IP address to match your backend host.
 
+---
+
+## 🐳 Docker Setup (Linux Mint / Ubuntu)
+
+If you are running the backend using Docker, follow these steps to ensure connectivity with the mobile app.
+
+### 1. Install Docker on Mint OS
+Linux Mint is binary compatible with Ubuntu. Run these commands:
+```bash
+# Update package index
+sudo apt update
+
+# Install dependencies
+sudo apt install apt-transport-https ca-certificates curl software-properties-common
+
+# Add Docker's GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Add repository (using Ubuntu base)
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$UBUNTU_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Post-install: Add user to docker group
+sudo usermod -aG docker $USER
+# NOTE: Log out and log back in for this to take effect!
+```
+
+### 2. Run the Backend
+Navigate to the root of the `qr-system` project:
+```bash
+# Start the containers in background
+docker compose up -d
+
+# Verify services are running
+docker compose ps
+```
+
+### 3. Connecting Mobile to Docker
+- **Emulator**: Use `http://10.0.2.2:8000/api/` as the `BASE_URL`.
+- **Physical Device**: 
+  - Ensure your phone and PC are on the same Wi-Fi.
+  - Find your PC IP: `hostname -I | awk '{print $1}'`
+  - Update `BASE_URL` in `ApiClient.kt` to `http://YOUR_PC_IP:8000/api/`.
+  - **Firewall Note**: If connection fails on Mint, allow port 8000: `sudo ufw allow 8000/tcp`
+
+---
+
 ### Build and Run
 1. Open the project in Android Studio.
 2. Let Gradle sync complete.
