@@ -105,12 +105,17 @@ class DashboardSiswaActivity : AppCompatActivity() {
 
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.menu_profile -> {
+                    val intent = Intent(this, ProfileActivity::class.java)
+                    startActivity(intent)
+                    true
+                }
                 R.id.menu_logout -> {
                     showLogoutConfirmation()
                     true
                 }
                 R.id.menu_cancel -> {
-                    Toast.makeText(this, "Menu dibatalkan", Toast.LENGTH_SHORT).show()
+                    // Do nothing or dismiss
                     true
                 }
                 else -> false

@@ -168,30 +168,39 @@ class Dashboard : AppCompatActivity() {
 
     // ===== FUNGSI LAINNYA (TETAP SAMA) =====
     private fun updateDataStatistik() {
-        val totalSiswa = Random.nextInt(80, 120)
-        val totalGuru = Random.nextInt(10, 20)
-        val totalJurusan = 5
-        val totalKelas = Random.nextInt(8, 15)
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        apiService.getAdminDashboard().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.AdminDashboardResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.AdminDashboardResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.AdminDashboardResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val data = response.body()
+                    if (data != null) {
+                        tvTotalSiswa.text = data.totalSiswa.toString()
+                        tvTotalGuru.text = data.totalGuru.toString()
+                        tvTotalJurusan.text = data.totalJurusan.toString()
+                        tvTotalKelas.text = data.totalKelas.toString()
 
-        val hadir = Random.nextInt(60, totalSiswa - 20)
-        val izin = Random.nextInt(3, 10)
-        val pulang = (hadir * 0.9).toInt()
-        val tidakHadir = Random.nextInt(5, 15)
-        val sakit = Random.nextInt(2, 8)
+                        tvHadir.text = data.attendance.hadir.toString()
+                        tvIzin.text = data.attendance.izin.toString()
+                        tvSakit.text = data.attendance.sakit.toString()
+                        tvAlpha.text = data.attendance.alpha.toString()
+                        tvTerlambat.text = data.attendance.terlambat.toString()
+                        tvPulang.text = data.attendance.pulang.toString() // Or hide/ignore if 0
 
-        tvTotalSiswa.text = totalSiswa.toString()
-        tvTotalGuru.text = totalGuru.toString()
-        tvTotalJurusan.text = totalJurusan.toString()
-        tvTotalKelas.text = totalKelas.toString()
+                        setupChartHariIni()
+                    }
+                } else {
+                    Toast.makeText(this@Dashboard, "Gagal memuat data", Toast.LENGTH_SHORT).show()
+                }
+            }
 
-        tvHadir.text = hadir.toString()
-        tvIzin.text = izin.toString()
-        tvPulang.text = pulang.toString()
-        tvAlpha.text = tidakHadir.toString()
-        tvSakit.text = sakit.toString()
-        tvTerlambat.text = "0"
-
-        setupChartHariIni()
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.AdminDashboardResponse>, t: Throwable) {
+                Toast.makeText(this@Dashboard, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun setupChartHariIni() {

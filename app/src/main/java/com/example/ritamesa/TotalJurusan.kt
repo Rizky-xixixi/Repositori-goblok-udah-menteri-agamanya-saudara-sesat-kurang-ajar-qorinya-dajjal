@@ -11,7 +11,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.ritamesa.data.api.ApiClient
 import com.example.ritamesa.data.api.ApiService
-import com.example.ritamesa.data.model.MajorResponse
+import com.example.ritamesa.data.model.MajorListResponse
+import com.example.ritamesa.data.model.MajorItem
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -19,8 +20,8 @@ import retrofit2.Response
 class TotalJurusan : AppCompatActivity() {
 
     // ===== DATA LIST =====
-    private val listJurusanRaw = ArrayList<Jurusan>() // Data asli dari API
-    private val listJurusanDisplay = ArrayList<Jurusan>() // Data yang ditampilkan (bisa difilter)
+    private val listJurusanRaw = ArrayList<MajorItem>() // Data asli dari API
+    private val listJurusanDisplay = ArrayList<MajorItem>() // Data yang ditampilkan (bisa difilter)
 
     // ===== COMPONENTS =====
     private lateinit var recyclerView: RecyclerView
@@ -52,14 +53,10 @@ class TotalJurusan : AppCompatActivity() {
         jurusanAdapter = JurusanAdapter(
             listJurusanDisplay,
             onEditClickListener = { jurusan ->
-                // Edit not implemented for API yet, show toast
-                Toast.makeText(this, "Edit fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
+                showEditDialog(jurusan)
             },
             onDeleteClickListener = { jurusan ->
-                // Delete not implemented for API yet, show toast
-                Toast.makeText(this, "Hapus fitur belum tersedia untuk API", Toast.LENGTH_SHORT).show()
-                // Untuk simulasi hapus lokal:
-                // showDeleteConfirmation(jurusan, listJurusanDisplay.indexOf(jurusan))
+                showDeleteConfirmation(jurusan)
             }
         )
         recyclerView.adapter = jurusanAdapter
@@ -68,11 +65,8 @@ class TotalJurusan : AppCompatActivity() {
     private fun fetchJurusanData() {
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         
-        // Show loading (optional, toast for now)
-        Toast.makeText(this, "Memuat data jurusan...", Toast.LENGTH_SHORT).show()
-
-        apiService.getMajors().enqueue(object : Callback<MajorResponse> {
-            override fun onResponse(call: Call<MajorResponse>, response: Response<MajorResponse>) {
+        apiService.getMajors().enqueue(object : Callback<MajorListResponse> {
+            override fun onResponse(call: Call<MajorListResponse>, response: Response<MajorListResponse>) {
                 if (response.isSuccessful && response.body() != null) {
                     val majors = response.body()!!.data
                     
@@ -83,13 +77,12 @@ class TotalJurusan : AppCompatActivity() {
                     listJurusanDisplay.addAll(majors)
                     
                     jurusanAdapter.updateData(listJurusanDisplay)
-                    Toast.makeText(this@TotalJurusan, "Data berhasil dimuat: ${majors.size} jurusan", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this@TotalJurusan, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            override fun onFailure(call: Call<MajorResponse>, t: Throwable) {
+            override fun onFailure(call: Call<MajorListResponse>, t: Throwable) {
                 Toast.makeText(this@TotalJurusan, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
                 Log.e("TotalJurusan", "Error fetching majors", t)
             }
@@ -105,8 +98,7 @@ class TotalJurusan : AppCompatActivity() {
         // BUTTON TAMBAH
         val btnTambah = findViewById<LinearLayout>(R.id.imageButton23)
         btnTambah.setOnClickListener {
-            Toast.makeText(this, "Fitur Tambah belum tersedia untuk API", Toast.LENGTH_SHORT).show()
-            // showAddDialog() 
+            showAddMajorDialog()
         }
 
         // BUTTON SEARCH
@@ -126,29 +118,148 @@ class TotalJurusan : AppCompatActivity() {
         }
     }
 
-    private fun searchJurusan() {
-        val query = editTextSearch.text.toString().trim()
-        val filteredList = if (query.isEmpty()) {
-            listJurusanRaw
-        } else {
-            listJurusanRaw.filter {
-                it.KonsentrasiKeahlian.contains(query, true) ||
-                        it.Kodejurusan.contains(query, true)
+    private fun showAddMajorDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.pop_up_tambah_jurusan)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val etNama = dialog.findViewById<EditText>(R.id.et_nama_jurusan)
+        val etKode = dialog.findViewById<EditText>(R.id.et_kode_jurusan)
+        val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
+        val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
+
+        btnBatal.setOnClickListener { dialog.dismiss() }
+
+        btnSimpan.setOnClickListener {
+            val nama = etNama.text.toString().trim()
+            val kode = etKode.text.toString().trim()
+
+            if (nama.isEmpty() || kode.isEmpty()) {
+                Toast.makeText(this, "Semua field harus diisi", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            createMajor(nama, kode, dialog)
         }
 
-        if (filteredList.isEmpty() && query.isNotEmpty()) {
-            Toast.makeText(this, "Tidak ditemukan jurusan dengan kata kunci '$query'", Toast.LENGTH_SHORT).show()
-        }
-
-        listJurusanDisplay.clear()
-        listJurusanDisplay.addAll(filteredList)
-        jurusanAdapter.updateData(listJurusanDisplay)
+        dialog.show()
     }
 
-    // Dialog methods commented out or kept as placeholder for future implementation
-    
-    private fun showDeleteConfirmation(jurusan: Jurusan, position: Int) {
-         // Local delete logic
+    private fun createMajor(nama: String, kode: String, dialog: Dialog) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        val request = com.example.ritamesa.data.model.MajorCreate(kode, nama)
+
+        apiService.createMajor(request).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalJurusan, "Jurusan berhasil ditambahkan", Toast.LENGTH_SHORT).show()
+                    fetchJurusanData()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this@TotalJurusan, "Gagal menambah jurusan", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalJurusan, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showEditDialog(jurusan: MajorItem) {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.pop_up_edit_jurusan)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val etNama = dialog.findViewById<EditText>(R.id.et_nama_jurusan)
+        val etKode = dialog.findViewById<EditText>(R.id.et_kode_jurusan)
+        val btnSimpan = dialog.findViewById<Button>(R.id.btn_simpan)
+        val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
+
+        etNama.setText(jurusan.name)
+        etKode.setText(jurusan.code)
+
+        btnBatal.setOnClickListener { dialog.dismiss() }
+
+        btnSimpan.setOnClickListener {
+            val nama = etNama.text.toString().trim()
+            val kode = etKode.text.toString().trim()
+
+            if (nama.isEmpty() || kode.isEmpty()) {
+                Toast.makeText(this, "Semua field harus diisi", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            updateMajor(jurusan.id, nama, kode, dialog)
+        }
+
+        dialog.show()
+    }
+
+    private fun updateMajor(id: Int, nama: String, kode: String, dialog: Dialog) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        val request = com.example.ritamesa.data.model.CreateMajorRequest(nama, kode)
+
+        apiService.updateMajor(id, request).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalJurusan, "Jurusan berhasil diperbarui", Toast.LENGTH_SHORT).show()
+                    fetchJurusanData()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this@TotalJurusan, "Gagal memperbarui jurusan", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalJurusan, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun showDeleteConfirmation(jurusan: MajorItem) {
+        AlertDialog.Builder(this)
+            .setTitle("Hapus Jurusan")
+            .setMessage("Apakah Anda yakin ingin menghapus jurusan ${jurusan.name}?")
+            .setPositiveButton("Hapus") { _, _ ->
+                deleteMajor(jurusan.id)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteMajor(id: Int) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        apiService.deleteMajor(id).enqueue(object : Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.GeneralResponse>, response: Response<com.example.ritamesa.data.model.GeneralResponse>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@TotalJurusan, "Jurusan berhasil dihapus", Toast.LENGTH_SHORT).show()
+                    fetchJurusanData()
+                } else {
+                    Toast.makeText(this@TotalJurusan, "Gagal menghapus jurusan", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                Toast.makeText(this@TotalJurusan, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun searchJurusan() {
+        val query = editTextSearch.text.toString().trim().lowercase()
+        
+        if (query.isEmpty()) {
+            listJurusanDisplay.clear()
+            listJurusanDisplay.addAll(listJurusanRaw)
+        } else {
+            listJurusanDisplay.clear()
+            listJurusanDisplay.addAll(listJurusanRaw.filter { jurusan ->
+                jurusan.name.lowercase().contains(query) ||
+                jurusan.code.lowercase().contains(query)
+            })
+        }
+        
+        jurusanAdapter.updateData(listJurusanDisplay)
     }
 }

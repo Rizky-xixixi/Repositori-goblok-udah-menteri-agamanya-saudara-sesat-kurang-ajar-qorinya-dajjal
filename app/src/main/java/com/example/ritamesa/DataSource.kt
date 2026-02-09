@@ -1,6 +1,10 @@
 package com.example.ritamesa
 
 object DataSource {
+    // NOTE: This is now deprecated and replaced by API calls
+    // Keeping for backward compatibility reference only
+    
+    /*
     fun getJurusanList(): List<Jurusan> {
         return listOf(
             Jurusan(1, "Mekatronika", "111"),
@@ -13,4 +17,5 @@ object DataSource {
             Jurusan(8, "Audio video", "Multimedia"),
         )
     }
+    */
 }

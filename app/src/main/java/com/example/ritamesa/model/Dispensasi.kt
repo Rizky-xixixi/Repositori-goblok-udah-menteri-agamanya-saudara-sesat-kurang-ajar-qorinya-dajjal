@@ -1,6 +1,7 @@
 package com.example.ritamesa
 
 data class Dispensasi(
+    val id: Int,
     val namaSiswa: String,
     val kelas: String,
     val mataPelajaran: String,

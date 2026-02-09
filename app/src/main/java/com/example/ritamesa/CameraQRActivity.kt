@@ -48,6 +48,9 @@ class CameraQRActivity : AppCompatActivity() {
         private const val CAMERA_PERMISSION_REQUEST = 100
         private const val LOCATION_PERMISSION_REQUEST = 101
         private const val TAG = "CameraQRActivity"
+        const val EXTRA_MAPEL = "MATA_PELAJARAN"
+        const val EXTRA_KELAS = "KELAS"
+        const val EXTRA_QR_RESULT = "QR_RESULT"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,12 +183,17 @@ class CameraQRActivity : AppCompatActivity() {
         val lat = lastLocation?.latitude
         val lng = lastLocation?.longitude
         
-        Log.d(TAG, "Sending scan request: token=$token, lat=$lat, lng=$lng")
+        // Retrieve device ID from session (optional)
+        val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
+        val deviceId = sessionManager.getDeviceId()
+        
+        Log.d(TAG, "Sending scan request: token=$token, lat=$lat, lng=$lng, deviceId=$deviceId")
 
         val request = ScanRequest(
             token = token,
             latitude = lat,
-            longitude = lng
+            longitude = lng,
+            deviceId = if (deviceId != 0) deviceId else null
         )
 
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
@@ -196,16 +204,22 @@ class CameraQRActivity : AppCompatActivity() {
                     val scanResponse = response.body()
                     val attendance = scanResponse?.attendance
                     
-                    val subject = attendance?.schedule?.mataPelajaran ?: "Tidak diketahui"
+                    // Get schedule details
+                    val schedule = attendance?.schedule
+                    val subject = schedule?.mataPelajaran ?: "Tidak diketahui"
                     val time = attendance?.checkInTime ?: "-"
-                    // Try to get teacher name from attendance.teacher.user.name, fallback to schedule or unknown
+                    
+                    // Get teacher information
                     val teacherName = attendance?.teacher?.user?.name ?: "Guru"
+                    
+                    // Get status
+                    val status = attendance?.status ?: "Hadir"
                     
                     val message = """
                         Mata Pelajaran: $subject
                         Guru: $teacherName
                         Waktu: $time
-                        Status: Berhasil
+                        Status: $status
                     """.trimIndent()
 
                     androidx.appcompat.app.AlertDialog.Builder(this@CameraQRActivity)
@@ -247,6 +261,7 @@ class CameraQRActivity : AppCompatActivity() {
             override fun onFailure(call: Call<ScanResponse>, t: Throwable) {
                 progressBar.visibility = View.GONE
                 Toast.makeText(this@CameraQRActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "API Error", t)
                 // Resume scanning
                 Handler(Looper.getMainLooper()).postDelayed({
                     isScanning = true

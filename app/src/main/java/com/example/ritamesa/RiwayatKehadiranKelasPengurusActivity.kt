@@ -101,7 +101,7 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val dateStr = dateFormat.format(currentDate)
 
-        apiService.getClassAttendance(from = dateStr, to = dateStr).enqueue(object : Callback<List<HomeroomAttendanceItem>> {
+        apiService.getClassAttendance(fromDate = dateStr, toDate = dateStr).enqueue(object : Callback<List<HomeroomAttendanceItem>> {
             override fun onResponse(call: Call<List<HomeroomAttendanceItem>>, response: Response<List<HomeroomAttendanceItem>>) {
                 if (response.isSuccessful) {
                     val data = response.body() ?: emptyList()
@@ -164,8 +164,8 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
 
                 detailsList.add(RiwayatAbsenItem(
                     id = counter++,
-                    nama = item.student?.user?.name ?: "Siswa",
-                    kelas = "-", // Not essential inside popup
+                    namaSiswa = item.student?.user?.name ?: "Siswa",
+                    jurusan = "-", // Not essential inside popup
                     tanggal = item.createdAt, // Or format strictly
                     waktu = item.schedule?.startTime ?: "-",
                     status = statusType

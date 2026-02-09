@@ -5,11 +5,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.model.MajorItem
 
 class JurusanAdapter(
-    private var jurusanList: List<Jurusan>,
-    private val onEditClickListener: (Jurusan) -> Unit,
-    private val onDeleteClickListener: (Jurusan) -> Unit
+    private var jurusanList: List<MajorItem>,
+    private val onEditClickListener: (MajorItem) -> Unit,
+    private val onDeleteClickListener: (MajorItem) -> Unit
 ) : RecyclerView.Adapter<JurusanAdapter.JurusanViewHolder>() {
 
     class JurusanViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -30,8 +31,8 @@ class JurusanAdapter(
         val jurusan = jurusanList[position]
 
         holder.tvNo.text = (position + 1).toString()
-        holder.tvNamaJurusan.text = jurusan.KonsentrasiKeahlian
-        holder.tvKodeJurusan.text = jurusan.Kodejurusan
+        holder.tvNamaJurusan.text = jurusan.name
+        holder.tvKodeJurusan.text = jurusan.code
 
         holder.btnEdit.setOnClickListener {
             onEditClickListener(jurusan)
@@ -44,7 +45,7 @@ class JurusanAdapter(
 
     override fun getItemCount(): Int = jurusanList.size
 
-    fun updateData(newList: List<Jurusan>) {
+    fun updateData(newList: List<MajorItem>) {
         jurusanList = newList
         notifyDataSetChanged()
     }

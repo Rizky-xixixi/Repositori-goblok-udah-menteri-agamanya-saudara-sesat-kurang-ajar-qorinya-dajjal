@@ -129,13 +129,13 @@ class TotalSiswa : AppCompatActivity() {
     }
 
     private fun fetchClasses() {
-        apiService.getClasses().enqueue(object : Callback<List<ClassItem>> {
-            override fun onResponse(call: Call<List<ClassItem>>, response: Response<List<ClassItem>>) {
+        apiService.getClasses().enqueue(object : Callback<ClassListResponse> {
+            override fun onResponse(call: Call<ClassListResponse>, response: Response<ClassListResponse>) {
                 if (response.isSuccessful) {
-                    listClasses = response.body() ?: listOf()
+                    listClasses = response.body()?.data ?: listOf()
                 }
             }
-            override fun onFailure(call: Call<List<ClassItem>>, t: Throwable) {
+            override fun onFailure(call: Call<ClassListResponse>, t: Throwable) {
                 Log.e("TotalSiswa", "Failed to fetch classes", t)
             }
         })
@@ -185,11 +185,11 @@ class TotalSiswa : AppCompatActivity() {
         val btnBatal = dialog.findViewById<Button>(R.id.btn_batal)
 
         // Dropdowns
-        val selectedClassId = io.reactivex.rxjava3.subjects.BehaviorSubject.create<Int>()
+        var selectedClassId: Int? = null
         
         btnArrowKelas.setOnClickListener {
              showKelasDropdown(inputKelas) { classItem ->
-                 selectedClassId.onNext(classItem.id)
+                 selectedClassId = classItem.id
                  inputJurusan.setText(classItem.major?.name ?: "-")
              }
         }
@@ -205,7 +205,7 @@ class TotalSiswa : AppCompatActivity() {
             val nisn = inputNisn.text.toString().trim()
             val jenis = if (inputJenis.text.toString().contains("Laki")) "L" else "P"
             
-            if (!selectedClassId.hasValue()) {
+            if (selectedClassId == null) {
                 Toast.makeText(this, "Pilih Kelas terlebih dahulu", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -218,7 +218,7 @@ class TotalSiswa : AppCompatActivity() {
                 name = nama,
                 nisn = nisn,
                 nis = nisn,
-                classId = selectedClassId.value!!,
+                classId = selectedClassId!!,
                 gender = jenis,
                 username = nisn
             )

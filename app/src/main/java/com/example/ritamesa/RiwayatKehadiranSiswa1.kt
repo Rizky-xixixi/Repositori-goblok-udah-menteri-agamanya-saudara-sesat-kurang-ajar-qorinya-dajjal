@@ -3,6 +3,9 @@ package com.example.ritamesa
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
@@ -13,6 +16,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.SchoolAttendanceResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -24,83 +33,10 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
     private lateinit var calendarButton: ImageButton
     private lateinit var pageControlButton: ImageButton
     private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: AttendanceAdapter
-
-    private val allData = listOf(
-        Attendance(
-            date = "Senin, 7 Januari 2026",
-            name = "Andi Wijaya",
-            classGrade = "12 RPL 2",
-            status = "Tepat Waktu",
-            keterangan = "Hadir"
-        ),
-        Attendance(
-            date = "Senin, 7 Januari 2026",
-            name = "Budi Santoso",
-            classGrade = "12 RPL 2",
-            status = "Terlambat",
-            keterangan = "Macet di jalan"
-        ),
-        Attendance(
-            date = "Senin, 7 Januari 2026",
-            name = "Cici Amelia",
-            classGrade = "11 TKJ 1",
-            status = "Izin",
-            keterangan = "Dispensasi Lomba"
-        ),
-        Attendance(
-            date = "Senin, 7 Januari 2026",
-            name = "Dedi Pratama",
-            classGrade = "10 MM 3",
-            status = "Sakit",
-            keterangan = "Demam"
-        ),
-        Attendance(
-            date = "Senin, 7 Januari 2026",
-            name = "Eka Putri",
-            classGrade = "12 AKL 1",
-            status = "Alpha",
-            keterangan = "-"
-        ),
-        Attendance(
-            date = "Selasa, 8 Januari 2026",
-            name = "Fajar Nugroho",
-            classGrade = "12 RPL 2",
-            status = "Tepat Waktu",
-            keterangan = "Hadir"
-        ),
-        Attendance(
-            date = "Selasa, 8 Januari 2026",
-            name = "Gita Wulandari",
-            classGrade = "11 TKJ 1",
-            status = "Terlambat",
-            keterangan = "Bangun kesiangan"
-        ),
-        Attendance(
-            date = "Rabu, 9 Januari 2026",
-            name = "Hadi Susanto",
-            classGrade = "10 MM 3",
-            status = "Izin",
-            keterangan = "Keperluan keluarga"
-        ),
-        Attendance(
-            date = "Kamis, 10 Januari 2026",
-            name = "Indra Maulana",
-            classGrade = "12 AKL 1",
-            status = "Sakit",
-            keterangan = "Flu"
-        ),
-        Attendance(
-            date = "Jumat, 11 Januari 2026",
-            name = "Joko Widodo",
-            classGrade = "12 RPL 2",
-            status = "Alpha",
-            keterangan = "-"
-        )
-    )
+    private lateinit var adapter: AttendanceAdapter1
 
     private var currentStatusFilter = "Semua"
-    private var currentDateFilter: String? = null
+    private var currentDateFilter = Calendar.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -121,7 +57,8 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
             setupCategoryButton()
             setupCalendarButton()
             setupPageControlButton()
-            loadData(currentStatusFilter, currentDateFilter)
+            
+            loadDataFromApi()
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -136,13 +73,12 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
         recyclerView = findViewById(R.id.recyclerView)
 
         val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-        val today = dateFormat.format(Calendar.getInstance().time)
-        dateTextView.text = today
+        dateTextView.text = dateFormat.format(currentDateFilter.time)
     }
 
     private fun setupRecyclerView() {
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = AttendanceAdapter(emptyList())
+        adapter = AttendanceAdapter1(emptyList())
         recyclerView.adapter = adapter
     }
 
@@ -176,30 +112,23 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
     }
 
     private fun showDatePickerDialog() {
-        val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val year = currentDateFilter.get(Calendar.YEAR)
+        val month = currentDateFilter.get(Calendar.MONTH)
+        val day = currentDateFilter.get(Calendar.DAY_OF_MONTH)
 
         val datePickerDialog = DatePickerDialog(
             this,
             { _, selectedYear, selectedMonth, selectedDay ->
-                val selectedCalendar = Calendar.getInstance()
-                selectedCalendar.set(selectedYear, selectedMonth, selectedDay)
-
+                currentDateFilter.set(selectedYear, selectedMonth, selectedDay)
                 val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-                val formattedDate = dateFormat.format(selectedCalendar.time)
-
+                val formattedDate = dateFormat.format(currentDateFilter.time)
                 dateTextView.text = formattedDate
-
-                currentDateFilter = formattedDate
-                loadData(currentStatusFilter, currentDateFilter)
+                loadDataFromApi()
             },
             year,
             month,
             day
         )
-
         datePickerDialog.show()
     }
 
@@ -239,44 +168,16 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
 
             popupMenu.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
-                    R.id.menu_hadir -> {
-                        statusTextView.text = "Hadir"
-                        currentStatusFilter = "Hadir"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
-                    R.id.menu_izin -> {
-                        statusTextView.text = "Izin"
-                        currentStatusFilter = "Izin"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
-                    R.id.menu_sakit -> {
-                        statusTextView.text = "Sakit"
-                        currentStatusFilter = "Sakit"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
-                    R.id.menu_alpha -> {
-                        statusTextView.text = "Alpha"
-                        currentStatusFilter = "Alpha"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
-                    R.id.menu_terlambat -> {
-                        statusTextView.text = "Terlambat"
-                        currentStatusFilter = "Terlambat"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
-                    R.id.menu_semua -> {
-                        statusTextView.text = "Semua"
-                        currentStatusFilter = "Semua"
-                        loadData(currentStatusFilter, currentDateFilter)
-                        true
-                    }
+                    R.id.menu_hadir -> { statusTextView.text = "Hadir"; currentStatusFilter = "present" }
+                    R.id.menu_izin -> { statusTextView.text = "Izin"; currentStatusFilter = "excused" }
+                    R.id.menu_sakit -> { statusTextView.text = "Sakit"; currentStatusFilter = "sick" }
+                    R.id.menu_alpha -> { statusTextView.text = "Alpha"; currentStatusFilter = "absent" }
+                    R.id.menu_terlambat -> { statusTextView.text = "Terlambat"; currentStatusFilter = "late" }
+                    R.id.menu_semua -> { statusTextView.text = "Semua"; currentStatusFilter = "Semua" }
                     else -> false
                 }
+                loadDataFromApi()
+                true
             }
 
             popupMenu.show()
@@ -286,63 +187,49 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
         }
     }
 
-    private fun loadData(status: String, selectedDate: String?) {
-        try {
-            var filteredList = allData
+    private fun loadDataFromApi() {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateStr = dateFormat.format(currentDateFilter.time)
+        val apiStatus = if (currentStatusFilter == "Semua") null else currentStatusFilter
 
-            filteredList = when (status) {
-                "Semua" -> filteredList
-                "Hadir" -> filteredList.filter { it.status == "Tepat Waktu" }
-                "Terlambat" -> filteredList.filter { it.status == "Terlambat" }
-                "Izin" -> filteredList.filter { it.status == "Izin" }
-                "Sakit" -> filteredList.filter { it.status == "Sakit" }
-                "Alpha" -> filteredList.filter { it.status == "Alpha" }
-                else -> filteredList
-            }
-
-            if (!selectedDate.isNullOrEmpty()) {
-                filteredList = filteredList.filter { data ->
-                    try {
-                        val dataDate = convertToDateOnly(data.date)
-                        val selectedDateFormatted = convertToDateOnly(selectedDate)
-                        dataDate == selectedDateFormatted
-                    } catch (e: Exception) {
-                        false
+        apiService.getSchoolAttendanceHistory(date = dateStr, status = apiStatus, role = "Siswa")
+            .enqueue(object : Callback<SchoolAttendanceResponse> {
+                override fun onResponse(call: Call<SchoolAttendanceResponse>, response: Response<SchoolAttendanceResponse>) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val items = response.body()!!.data.map { apiItem ->
+                            Attendance1(
+                                date = apiItem.date,
+                                name = apiItem.student?.user?.name ?: "Siswa",
+                                classGrade = apiItem.schedule?.classInfo?.name ?: "-",
+                                status = when(apiItem.status) {
+                                    "present" -> "Tepat Waktu"
+                                    "late" -> "Terlambat"
+                                    "sick" -> "Sakit"
+                                    "excused" -> "Izin"
+                                    "absent" -> "Alpha"
+                                    else -> apiItem.status
+                                },
+                                keterangan = if(apiItem.status == "late") "Terlambat" else "Hadir"
+                            )
+                        }
+                        adapter.updateData(items)
+                        updateStatistics(items)
+                    } else {
+                        Toast.makeText(this@RiwayatKehadiranSiswa1, "Gagal memuat data", Toast.LENGTH_SHORT).show()
                     }
                 }
-            }
 
-            adapter = AttendanceAdapter(filteredList)
-            recyclerView.adapter = adapter
-
-            updateStatistics(filteredList)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Error memuat data: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+                override fun onFailure(call: Call<SchoolAttendanceResponse>, t: Throwable) {
+                    Toast.makeText(this@RiwayatKehadiranSiswa1, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
-    private fun convertToDateOnly(dateString: String): String {
-        return try {
-            val inputFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale("id", "ID"))
-            val outputFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-
-            val date = inputFormat.parse(dateString)
-            outputFormat.format(date)
-        } catch (e: ParseException) {
-            try {
-                val inputFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-                val date = inputFormat.parse(dateString)
-                dateString
-            } catch (e2: ParseException) {
-                dateString
-            }
-        }
-    }
-
-    private fun updateStatistics(data: List<Attendance>) {
+    private fun updateStatistics(data: List<Attendance1>) {
         try {
-            val totalSiswa = allData.size
+            val totalSiswa = data.size
             val hadirCount = data.count { it.status == "Tepat Waktu" }
             val terlambatCount = data.count { it.status == "Terlambat" }
             val izinCount = data.count { it.status == "Izin" }
@@ -361,9 +248,7 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
     }
 
     private fun setupPageControlButton() {
-        pageControlButton.setOnClickListener { view ->
-            showExportImportMenu()
-        }
+        pageControlButton.setOnClickListener { showExportImportMenu() }
     }
 
     private fun showExportImportMenu() {
@@ -374,14 +259,8 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
 
             popupMenu.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
-                    R.id.menu_ekspor -> {
-                        handleEkspor()
-                        true
-                    }
-                    R.id.menu_impor -> {
-                        handleImpor()
-                        true
-                    }
+                    R.id.menu_ekspor -> { handleEkspor(); true }
+                    R.id.menu_impor -> { handleImpor(); true }
                     else -> false
                 }
             }
@@ -401,11 +280,36 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
         Toast.makeText(this, "Impor data riwayat kehadiran siswa...", Toast.LENGTH_SHORT).show()
     }
 
-    private fun resetDateFilter() {
-        currentDateFilter = null
-        val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID"))
-        val today = dateFormat.format(Calendar.getInstance().time)
-        dateTextView.text = today
-        loadData(currentStatusFilter, currentDateFilter)
+    inner class AttendanceAdapter1(private var list: List<Attendance1>) : RecyclerView.Adapter<AttendanceAdapter1.ViewHolder>() {
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val textNama: TextView = view.findViewById(R.id.textView34)
+            val textKelas: TextView = view.findViewById(R.id.textView197)
+            val textStatus: TextView = view.findViewById(R.id.textView202)
+            val textKeterangan: TextView = view.findViewById(R.id.textView201)
+        }
+        fun updateData(newList: List<Attendance1>) {
+            list = newList
+            notifyDataSetChanged()
+        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_riwayat_siswa, parent, false)
+            return ViewHolder(view)
+        }
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = list[position]
+            holder.textNama.text = item.name
+            holder.textKelas.text = item.classGrade
+            holder.textStatus.text = item.status
+            holder.textKeterangan.text = item.keterangan
+        }
+        override fun getItemCount() = list.size
     }
 }
+
+data class Attendance1(
+    val date: String,
+    val name: String,
+    val classGrade: String,
+    val status: String,
+    val keterangan: String
+)

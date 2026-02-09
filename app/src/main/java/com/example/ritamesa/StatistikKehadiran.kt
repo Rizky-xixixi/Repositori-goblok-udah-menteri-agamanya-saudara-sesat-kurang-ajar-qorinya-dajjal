@@ -66,8 +66,16 @@ class StatistikKehadiran : AppCompatActivity() {
         val btnNotif = findViewById<ImageButton>(R.id.imageButton6)
 
         // ===== NAVIGATION ACTION =====
+        // ===== NAVIGATION ACTION =====
+        val userRole = intent.getStringExtra("ROLE")
+
         btnHome.setOnClickListener {
-            startActivity(Intent(this, Dashboard::class.java))
+            if (userRole == "TEACHER") {
+                val intent = Intent(this, DashboardGuruActivity::class.java)
+                startActivity(intent)
+            } else {
+                startActivity(Intent(this, Dashboard::class.java))
+            }
             finish()
         }
 
@@ -185,29 +193,103 @@ class StatistikKehadiran : AppCompatActivity() {
     // UPDATE ALL CHARTS
     // =================================================
     private fun updateAllChart() {
-        generateDummyData()
+        // generateDummyData() // Removed
+        loadDataFromApi()
+    }
+
+    private fun loadDataFromApi() {
+        val sessionManager = com.example.ritamesa.data.pref.SessionManager(this)
+        val role = sessionManager.getUserRole() // Fixed method name
+        
+        // Use current month/year or selected
+        val calendar = java.util.Calendar.getInstance()
+        val month = calendar.get(java.util.Calendar.MONTH) + 1 // 1-12
+        val year = calendar.get(java.util.Calendar.YEAR)
+        
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+
+        Toast.makeText(this, "Memuat data statistik...", Toast.LENGTH_SHORT).show()
+
+        if (role == "teacher") { // Assuming "teacher" is the role string
+             apiService.getMonthlyStatistics(month, year).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.TeacherStatisticsResponse> {
+                override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherStatisticsResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.TeacherStatisticsResponse>) {
+                    if (response.isSuccessful) {
+                        response.body()?.let { processTeacherApiData(it) }
+                    } else {
+                         Toast.makeText(this@StatistikKehadiran, "Gagal memuat statistik", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherStatisticsResponse>, t: Throwable) {
+                    Toast.makeText(this@StatistikKehadiran, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+        } else {
+            // Waka / Admin - Use Waka Summary
+            // Construct from/to dates for the month
+            val start = "$year-${String.format("%02d", month)}-01"
+            val end = "$year-${String.format("%02d", month)}-${calendar.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)}"
+            
+            apiService.getWakaAttendanceSummary(from = start, to = end).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse> {
+                override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>) {
+                    if (response.isSuccessful) {
+                        response.body()?.let { processWakaApiData(it) }
+                    } else {
+                         Toast.makeText(this@StatistikKehadiran, "Gagal memuat statistik waka", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, t: Throwable) {
+                    Toast.makeText(this@StatistikKehadiran, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+    }
+
+    private fun processTeacherApiData(data: com.example.ritamesa.data.model.TeacherStatisticsResponse) {
+        hadir = data.summary.hadir.toFloat()
+        sakit = data.summary.sakit.toFloat()
+        izin = data.summary.izin.toFloat()
+        alpha = data.summary.alfa.toFloat()
+        terlambat = data.summary.terlambat.toFloat()
+        pulang = 0f
+        
         updateBarChart()
         updatePieChart()
+        updateCards()
     }
 
-    private fun generateDummyData() {
-        // Generate random data untuk 6 kategori berdasarkan filter
-        val totalStudents = when(selectedRole) {
-            "Guru" -> Random.nextInt(20, 40)
-            "Siswa" -> Random.nextInt(80, 120)
-            else -> Random.nextInt(100, 150) // Semua
+    private fun processWakaApiData(data: com.example.ritamesa.data.model.WakaAttendanceSummaryResponse) {
+        // Reset
+        hadir = 0f; sakit = 0f; izin = 0f; alpha = 0f; terlambat = 0f; pulang = 0f
+        
+        data.statusSummary.forEach { item ->
+            when(item.status.lowercase()) {
+                "present", "hadir" -> hadir += item.total
+                "sick", "sakit" -> sakit += item.total
+                "excused", "izin" -> izin += item.total
+                "absent", "alpha" -> alpha += item.total
+                "late", "terlambat" -> terlambat += item.total
+                "pulang", "izin_pulang" -> pulang += item.total
+                else -> {}
+            }
         }
-
-        // Data untuk 6 kategori
-        hadir = Random.nextInt((totalStudents * 0.6).toInt(), (totalStudents * 0.8).toInt()).toFloat()
-        terlambat = Random.nextInt(5, 15).toFloat()
-        izin = Random.nextInt(3, 10).toFloat()
-        sakit = Random.nextInt(2, 8).toFloat()
-        pulang = (hadir * 0.9f).toInt().toFloat() // 90% dari yang hadir pulang tepat waktu
-        alpha = Random.nextInt(1, 5).toFloat()
+        
+        updateBarChart()
+        updatePieChart()
+        updateCards()
     }
+    
+    private fun updateCards() {
+        val tvHadirPercent = findViewById<TextView>(R.id.textView20)
+        val tvTerlambatPercent = findViewById<TextView>(R.id.textView78)
+        val tvIzinPercent = findViewById<TextView>(R.id.textView90)
+        val tvAlphaPercent = findViewById<TextView>(R.id.textView50)
+        updateStatistikCards(tvHadirPercent, tvTerlambatPercent, tvIzinPercent, tvAlphaPercent)
+    }
+
+    // Removed generateDummyData()
 
     private fun updateBarChart() {
+        // ... (Keep existing setup but use updated variables)
         val entries = listOf(
             BarEntry(0f, hadir),
             BarEntry(1f, terlambat),
@@ -219,12 +301,12 @@ class StatistikKehadiran : AppCompatActivity() {
 
         val dataSet = BarDataSet(entries, "Statistik Kehadiran")
         dataSet.colors = listOf(
-            Color.parseColor("#4CAF50"),  // Hijau - Hadir
-            Color.parseColor("#FF9800"),  // Oranye - Terlambat
-            Color.parseColor("#2196F3"),  // Biru - Izin
-            Color.parseColor("#9C27B0"),  // Ungu - Sakit
-            Color.parseColor("#00BCD4"),  // Cyan - Pulang
-            Color.parseColor("#F44336")   // Merah - Alpha
+            Color.parseColor("#4CAF50"),  // Hijau
+            Color.parseColor("#FF9800"),  // Oranye
+            Color.parseColor("#2196F3"),  // Biru
+            Color.parseColor("#9C27B0"),  // Ungu
+            Color.parseColor("#00BCD4"),  // Cyan
+            Color.parseColor("#F44336")   // Merah
         )
 
         dataSet.valueTextSize = 11f
@@ -234,7 +316,6 @@ class StatistikKehadiran : AppCompatActivity() {
         val data = BarData(dataSet)
         data.barWidth = 0.5f
 
-        // Format nilai menjadi integer
         data.setValueFormatter(object : ValueFormatter() {
             override fun getFormattedValue(value: Float): String {
                 return value.toInt().toString()
@@ -242,14 +323,16 @@ class StatistikKehadiran : AppCompatActivity() {
         })
 
         barChart.data = data
-
-        // Set Y-axis maximum
+        
         val maxValue = listOf(hadir, terlambat, izin, sakit, pulang, alpha).maxOrNull() ?: 100f
-        barChart.axisLeft.axisMaximum = maxValue + 10
+        barChart.axisLeft.axisMaximum = maxValue + (maxValue * 0.1f) // Add 10% buffering
 
         barChart.animateY(800)
         barChart.invalidate()
     }
+    
+    // ... (Keep existing updatePieChart and others)
+
 
     private fun updatePieChart() {
         val entries = listOf(

@@ -1,13 +1,12 @@
 package com.example.ritamesa.data.model
 
-import com.example.ritamesa.Jurusan
 import com.google.gson.annotations.SerializedName
 
 data class MajorResponse(
     @SerializedName("data")
-    val data: List<Jurusan>,
+    val data: List<MajorItem>,
     @SerializedName("current_page")
-    val currentPage: Int,
+    val currentPage: Int? = null,
     @SerializedName("last_page")
-    val lastPage: Int
+    val lastPage: Int? = null
 )

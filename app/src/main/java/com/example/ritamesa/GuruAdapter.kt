@@ -7,9 +7,9 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 class GuruAdapter(
-    private var guruList: List<Guru>,
-    private val onEditClick: (Guru, Int) -> Unit,
-    private val onDeleteClick: (Guru, Int) -> Unit
+    private var guruList: List<com.example.ritamesa.data.model.TeacherItem>,
+    private val onEditClick: (com.example.ritamesa.data.model.TeacherItem, Int) -> Unit,
+    private val onDeleteClick: (com.example.ritamesa.data.model.TeacherItem, Int) -> Unit
 ) : RecyclerView.Adapter<GuruAdapter.ViewHolder>() {
 
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -59,7 +59,7 @@ class GuruAdapter(
 
     override fun getItemCount(): Int = guruList.size
 
-    fun updateData(newList: List<Guru>) {
+    fun updateData(newList: List<com.example.ritamesa.data.model.TeacherItem>) {
         guruList = newList
         notifyDataSetChanged()
     }

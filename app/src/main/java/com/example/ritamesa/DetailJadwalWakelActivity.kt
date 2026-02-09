@@ -3,6 +3,7 @@ package com.example.ritamesa
 import android.app.Dialog
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -13,6 +14,7 @@ import java.util.*
 class DetailJadwalWakelActivity : AppCompatActivity() {
 
     private lateinit var currentJadwal: DashboardGuruActivity.JadwalData
+    private var studentList: List<com.example.ritamesa.data.model.StudentItem> = emptyList()
 
     // Untuk QR Scanner result
     private val qrScannerLauncher = registerForActivityResult(
@@ -38,6 +40,8 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
                 val intent = Intent(this, AbsensiSiswaActivity::class.java).apply {
                     putExtra(CameraQRActivity.EXTRA_MAPEL, mapel)
                     putExtra(CameraQRActivity.EXTRA_KELAS, kelas)
+                    putExtra("CLASS_ID", currentJadwal.classId)
+                    putExtra("SCHEDULE_ID", currentJadwal.id)
                     putExtra("tanggal", tanggal)
                     putExtra("jam", jam)
                 }
@@ -76,9 +80,12 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
             tvMapelDetail.text = it.mataPelajaran
             tvKelasDetail.text = it.kelas
 
-            // Jumlah siswa random 30-40
-            val txtJumlahSiswa: TextView = findViewById(R.id.txt_end_3)
-            txtJumlahSiswa.text = (30..40).random().toString()
+            // Fetch real student count
+            if (it.classId != null && it.classId != -1) {
+                fetchClassDetail(it.classId)
+            } else {
+                 findViewById<TextView>(R.id.txt_end_3).text = "-"
+            }
         }
 
         btnBack.setOnClickListener {
@@ -103,16 +110,36 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
 
         // TAMBAHAN: Long click untuk langsung ke absensi (testing tanpa QR)
         btnAbsensi.setOnLongClickListener {
-            // Langsung masuk ke absensi tanpa QR scan (untuk testing)
             val intent = Intent(this, AbsensiSiswaActivity::class.java).apply {
                 putExtra("MATA_PELAJARAN", currentJadwal.mataPelajaran)
                 putExtra("KELAS", currentJadwal.kelas)
+                putExtra("CLASS_ID", currentJadwal.classId)
+                putExtra("SCHEDULE_ID", currentJadwal.id)
                 putExtra("JAM", currentJadwal.jam)
                 putExtra("TANGGAL", SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date()))
             }
             startActivity(intent)
             true
         }
+    }
+
+    private fun fetchClassDetail(classId: Int) {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        apiService.getClassDetail(classId).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.ClassDetailResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.ClassDetailResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.ClassDetailResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val classDetail = response.body()
+                    studentList = classDetail?.students ?: emptyList()
+                    findViewById<TextView>(R.id.txt_end_3).text = studentList.size.toString()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.ClassDetailResponse>, t: Throwable) {
+                Log.e("DetailJadwal", "Error fetching class detail", t)
+            }
+        })
     }
 
     private fun formatTanggalWaktu(jam: String): String {
@@ -155,7 +182,7 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
         val tvNamaMapel: TextView = dialog.findViewById(R.id.tv_nama_mapel)
         val tvKelas: TextView = dialog.findViewById(R.id.tv_kelas)
         val inputKeterangan: EditText = dialog.findViewById(R.id.input_keterangan)
-        val inputMapel: EditText = dialog.findViewById(R.id.input_mapel)
+        val inputJam: EditText = dialog.findViewById(R.id.input_mapel)
         val inputTanggal: EditText = dialog.findViewById(R.id.input_tanggal)
         val etCatatan: EditText = dialog.findViewById(R.id.et_catatan)
         val btnKirimIzin: Button = dialog.findViewById(R.id.btn_kirim_izin)
@@ -165,27 +192,16 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
         tvNamaMapel.text = "${currentJadwal.mataPelajaran} - "
         tvKelas.text = currentJadwal.kelas
 
-        // Format tanggal
-        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-        val tanggalSekarang = sdf.format(Date())
+        val sdfShow = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+        val sdfApi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val tanggalSekarang = sdfShow.format(Date())
 
-        inputMapel.setText(currentJadwal.jam)
+        inputJam.setText(currentJadwal.jam)
         inputTanggal.setText(tanggalSekarang)
 
-        // Setup dropdown keterangan
-        inputKeterangan.setOnClickListener {
-            showKeteranganDropdown(inputKeterangan)
-        }
-
-        // Setup dropdown mapel
-        inputMapel.setOnClickListener {
-            showJamMapelDropdown(inputMapel)
-        }
-
-        // Setup date picker
-        inputTanggal.setOnClickListener {
-            showDatePickerDialog(inputTanggal)
-        }
+        inputKeterangan.setOnClickListener { showKeteranganDropdown(inputKeterangan) }
+        inputJam.setOnClickListener { showJamMapelDropdown(inputJam) }
+        inputTanggal.setOnClickListener { showDatePickerDialog(inputTanggal) }
 
         btnKirimIzin.setOnClickListener {
             val keterangan = inputKeterangan.text.toString()
@@ -196,31 +212,29 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Simulasi pengiriman
-            val message = """
-                Izin berhasil dikirim!
-                
-                Mata Pelajaran: ${currentJadwal.mataPelajaran}
-                Kelas: ${currentJadwal.kelas}
-                Keterangan: $keterangan
-                Tanggal: ${inputTanggal.text}
-                Jam: ${inputMapel.text}
-                ${if (catatan.isNotEmpty()) "Catatan: $catatan" else ""}
-            """.trimIndent()
+            val apiStatus = when(keterangan.lowercase()) {
+                "sakit" -> "sakit"
+                "izin" -> "izin"
+                "izin pulang" -> "izin_pulang"
+                else -> "izin"
+            }
 
-            AlertDialog.Builder(this)
-                .setTitle("Sukses")
-                .setMessage(message)
-                .setPositiveButton("OK") { _, _ ->
-                    dialog.dismiss()
-                }
-                .show()
+            val apiDate = try {
+                val d = sdfShow.parse(inputTanggal.text.toString())
+                sdfApi.format(d!!)
+            } catch (e: Exception) { sdfApi.format(Date()) }
+
+            val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
+                type = apiStatus,
+                date = apiDate,
+                reason = catatan.ifEmpty { "Izin Guru (Wakel): $keterangan" },
+                scheduleId = currentJadwal.id
+            )
+
+            submitAbsence(request, dialog)
         }
 
-        btnBatalIzin.setOnClickListener {
-            dialog.dismiss()
-        }
-
+        btnBatalIzin.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 
@@ -236,36 +250,19 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
         val etCatatan: EditText = dialog.findViewById(R.id.et_catatan)
         val btnKirimIzin: Button = dialog.findViewById(R.id.btn_kirim_izin)
         val btnBatalIzin: Button = dialog.findViewById(R.id.btn_batal_izin)
-
-        // TAMBAH INI: ImageButton untuk dropdown
         val btnDropdownKeterangan: ImageButton = dialog.findViewById(R.id.btn_dropdown_arrow)
 
-        // Isi data otomatis
-        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-        val tanggalSekarang = sdf.format(Date())
+        val sdfShow = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+        val sdfApi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val tanggalSekarang = sdfShow.format(Date())
 
         inputJam.setText(currentJadwal.jam)
         inputTanggal.setText(tanggalSekarang)
 
-        // Setup dropdown jam
-        inputJam.setOnClickListener {
-            showJamDropdown(inputJam)
-        }
-
-        // Setup date picker
-        inputTanggal.setOnClickListener {
-            showDatePickerDialog(inputTanggal)
-        }
-
-        // Setup dropdown keterangan untuk EditText (sudah ada)
-        inputKeterangan.setOnClickListener {
-            showKeteranganIzinDropdown(inputKeterangan)
-        }
-
-        // TAMBAH INI: Setup dropdown untuk ImageButton
-        btnDropdownKeterangan.setOnClickListener {
-            showKeteranganIzinDropdown(inputKeterangan)
-        }
+        inputJam.setOnClickListener { showJamDropdown(inputJam) }
+        inputTanggal.setOnClickListener { showDatePickerDialog(inputTanggal) }
+        inputKeterangan.setOnClickListener { showKeteranganIzinDropdown(inputKeterangan) }
+        btnDropdownKeterangan.setOnClickListener { showKeteranganIzinDropdown(inputKeterangan) }
 
         btnKirimIzin.setOnClickListener {
             val keterangan = inputKeterangan.text.toString()
@@ -276,31 +273,29 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Simulasi pengiriman
-            val message = """
-            Izin/Sakit berhasil diajukan!
-            
-            Mata Pelajaran: ${currentJadwal.mataPelajaran}
-            Kelas: ${currentJadwal.kelas}
-            Keterangan: $keterangan
-            Jam: ${inputJam.text}
-            Tanggal: ${inputTanggal.text}
-            ${if (catatan.isNotEmpty()) "Catatan: $catatan" else ""}
-        """.trimIndent()
+            val apiStatus = when(keterangan.lowercase()) {
+                "sakit" -> "sakit"
+                "izin" -> "izin"
+                "izin pulang" -> "izin_pulang"
+                else -> "izin"
+            }
 
-            AlertDialog.Builder(this)
-                .setTitle("Sukses")
-                .setMessage(message)
-                .setPositiveButton("OK") { _, _ ->
-                    dialog.dismiss()
-                }
-                .show()
+            val apiDate = try {
+                val d = sdfShow.parse(inputTanggal.text.toString())
+                sdfApi.format(d!!)
+            } catch (e: Exception) { sdfApi.format(Date()) }
+
+            val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
+                type = apiStatus,
+                date = apiDate,
+                reason = catatan.ifEmpty { "Izin Guru (Wakel): $keterangan" },
+                scheduleId = currentJadwal.id
+            )
+
+            submitAbsence(request, dialog)
         }
 
-        btnBatalIzin.setOnClickListener {
-            dialog.dismiss()
-        }
-
+        btnBatalIzin.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 
@@ -317,62 +312,44 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
         val btnKirimIzin: Button = dialog.findViewById(R.id.btn_kirim_izin)
         val btnBatalIzin: Button = dialog.findViewById(R.id.btn_batal_izin)
 
-        // Isi data otomatis
-        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-        val tanggalSekarang = sdf.format(Date())
+        val sdfShow = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+        val sdfApi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val tanggalSekarang = sdfShow.format(Date())
 
         inputJam.setText(currentJadwal.jam)
         inputTanggal.setText(tanggalSekarang)
 
-        // Setup dropdown jam
-        inputJam.setOnClickListener {
-            showJamDropdown(inputJam)
-        }
-
-        // Setup date picker
-        inputTanggal.setOnClickListener {
-            showDatePickerDialog(inputTanggal)
-        }
-
-        // Setup data dummy siswa (dropdown)
-        inputNamaSiswa.setOnClickListener {
-            showSiswaDropdown(inputNamaSiswa)
-        }
+        inputJam.setOnClickListener { showJamDropdown(inputJam) }
+        inputTanggal.setOnClickListener { showDatePickerDialog(inputTanggal) }
+        inputNamaSiswa.setOnClickListener { showSiswaDropdown(inputNamaSiswa) }
 
         btnKirimIzin.setOnClickListener {
             val namaSiswa = inputNamaSiswa.text.toString()
+            val studentId = inputNamaSiswa.tag as? Int 
             val catatan = etCatatan.text.toString()
 
-            if (namaSiswa.isEmpty()) {
-                Toast.makeText(this, "Harap isi nama siswa", Toast.LENGTH_SHORT).show()
+            if (namaSiswa.isEmpty() || studentId == null) {
+                Toast.makeText(this, "Harap pilih siswa dari daftar", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Simulasi pengiriman
-            val message = """
-                Dispensasi berhasil diajukan!
-                
-                Nama Siswa: $namaSiswa
-                Mata Pelajaran: ${currentJadwal.mataPelajaran}
-                Kelas: ${currentJadwal.kelas}
-                Jam: ${inputJam.text}
-                Tanggal Berlaku: ${inputTanggal.text}
-                ${if (catatan.isNotEmpty()) "Catatan: $catatan" else ""}
-            """.trimIndent()
+            val apiDate = try {
+                val d = sdfShow.parse(inputTanggal.text.toString())
+                sdfApi.format(d!!)
+            } catch (e: Exception) { sdfApi.format(Date()) }
 
-            AlertDialog.Builder(this)
-                .setTitle("Sukses")
-                .setMessage(message)
-                .setPositiveButton("OK") { _, _ ->
-                    dialog.dismiss()
-                }
-                .show()
+            val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
+                type = "izin", 
+                date = apiDate,
+                reason = "Dispensasi Siswa (By Wakel): $namaSiswa. ${catatan.ifEmpty { "" }}".trim(),
+                scheduleId = currentJadwal.id,
+                studentId = studentId
+            )
+
+            submitAbsence(request, dialog)
         }
 
-        btnBatalIzin.setOnClickListener {
-            dialog.dismiss()
-        }
-
+        btnBatalIzin.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 
@@ -436,25 +413,49 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
     }
 
     private fun showSiswaDropdown(editText: EditText) {
-        val siswaList = arrayOf(
-            "Fahmi - XI RPL 1",
-            "Rizky - XI RPL 2",
-            "Siti - XI TKJ 1",
-            "Ahmad - XI Mekatronika 1",
-            "Dewi - XI DKV 1",
-            "Budi - XI Animasi 1",
-            "Citra - XI RPL 3",
-            "Eko - XI TKJ 2",
-            "Fitri - XI Mekatronika 2",
-            "Gunawan - XI DKV 2"
-        )
+        if (studentList.isEmpty()) {
+            Toast.makeText(this, "Data siswa belum dimuat", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val items = studentList.map { "${it.name} - ${it.className}" }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle("Pilih Siswa")
-            .setItems(siswaList) { _, which ->
-                editText.setText(siswaList[which])
+            .setItems(items) { _, which ->
+                editText.setText(items[which])
+                editText.tag = studentList[which].id // Store student ID in tag
             }
             .show()
+    }
+
+    private fun submitAbsence(request: com.example.ritamesa.data.model.AbsenceRequestRequest, dialog: Dialog) {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        
+        val progress = android.app.ProgressDialog(this).apply {
+            setMessage("Mengirim pengajuan...")
+            setCancelable(false)
+            show()
+        }
+
+        apiService.submitAbsenceRequest(request).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.GeneralResponse> {
+            override fun onResponse(
+                call: retrofit2.Call<com.example.ritamesa.data.model.GeneralResponse>,
+                response: retrofit2.Response<com.example.ritamesa.data.model.GeneralResponse>
+            ) {
+                progress.dismiss()
+                if (response.isSuccessful) {
+                    Toast.makeText(this@DetailJadwalWakelActivity, "Pengajuan berhasil dikirim", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this@DetailJadwalWakelActivity, "Gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.GeneralResponse>, t: Throwable) {
+                progress.dismiss()
+                Toast.makeText(this@DetailJadwalWakelActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     private fun showGuruDropdown(editText: EditText) {

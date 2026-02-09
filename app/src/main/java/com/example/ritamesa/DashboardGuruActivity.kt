@@ -261,14 +261,16 @@ class DashboardGuruActivity : AppCompatActivity() {
         try {
             val intent = Intent(this, DetailJadwalGuruActivity::class.java).apply {
                 putExtra("JADWAL_DATA", JadwalData(
-                    mataPelajaran = jadwal.mataPelajaran,
-                    kelas = jadwal.kelas,
+                    id = jadwal.id, // Pass ID
+                    mataPelajaran = jadwal.mataPelajaran ?: "-",
+                    kelas = jadwal.kelas ?: "-",
+                    classId = jadwal.classId,
                     jam = jadwal.jam,
                     waktuPelajaran = jadwal.waktuPelajaran
                 ))
             }
             startActivity(intent)
-            Toast.makeText(this, "Membuka detail: ${jadwal.mataPelajaran}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Membuka detail: ${jadwal.mataPelajaran ?: "-"}", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Error navigate: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -292,7 +294,8 @@ class DashboardGuruActivity : AppCompatActivity() {
             }
 
             btnChart.setOnClickListener {
-                val intent = Intent(this, TindakLanjutGuruActivity::class.java)
+                val intent = Intent(this, StatistikKehadiran::class.java)
+                intent.putExtra("ROLE", "TEACHER")
                 startActivity(intent)
             }
 
@@ -345,8 +348,10 @@ class DashboardGuruActivity : AppCompatActivity() {
 
 
     data class JadwalData(
+        val id: Int, // Added ID
         val mataPelajaran: String,
         val kelas: String,
+        val classId: Int? = null,
         val jam: String,
         val waktuPelajaran: String
     ) : java.io.Serializable

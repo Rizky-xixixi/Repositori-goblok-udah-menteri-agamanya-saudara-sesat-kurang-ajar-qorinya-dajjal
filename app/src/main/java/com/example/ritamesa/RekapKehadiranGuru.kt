@@ -13,6 +13,14 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ritamesa.data.api.ApiClient
+import com.example.ritamesa.data.api.ApiService
+import com.example.ritamesa.data.model.TeacherItem
+import com.example.ritamesa.data.model.TeacherListResponse
+import com.example.ritamesa.data.model.TeachingAttendanceItem
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class RekapKehadiranGuru : AppCompatActivity() {
 
@@ -21,30 +29,72 @@ class RekapKehadiranGuru : AppCompatActivity() {
     private lateinit var editTextSearch: EditText
     private lateinit var btnBack: ImageButton
     private lateinit var btnMenu: ImageButton
-
-    // Data guru
-    private val guruList = listOf(
-        Guru("1", "Dr. Ahmad Sudrajat", "2006041001", "Matematika"),
-        Guru("2", "Siti Aminah, M.Pd.", "2006041002", "Bahasa Indonesia"),
-        Guru("3", "Agus Wijaya, S.Pd.", "2006041003", "IPA"),
-        Guru("4", "Dewi Lestari, M.Pd.", "2006041004", "IPS"),
-        Guru("5", "Rudi Hartono, S.Pd.", "2006041005", "PJOK"),
-        Guru("6", "Budi Santoso, M.Pd.", "2006041006", "Bahasa Inggris"),
-        Guru("7", "Maya Indah, S.Pd.", "2006041007", "Seni Budaya"),
-        Guru("8", "Hendra Pratama, S.Pd.", "2006041008", "Pemrograman"),
-        Guru("9", "Sri Wahyuni, M.Pd.", "2006041009", "Sejarah"),
-        Guru("10", "Fajar Nugroho, S.Pd.", "2006041010", "Kimia")
-    )
+    private lateinit var apiService: ApiService
+    private var guruList = mutableListOf<TeacherItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.rekap_kehadiran_guru)
+
+        apiService = ApiClient.getClient(this).create(ApiService::class.java)
 
         initView()
         setupRecyclerView()
         setupActions()
         setupBottomNavigation()
         setupSearch()
+        
+        fetchTeachers()
+    }
+
+    private fun fetchTeachers() {
+        val pd = android.app.ProgressDialog(this)
+        pd.setMessage("Memuat data guru...")
+        pd.show()
+
+        // Page 1 for now, or implement pagination
+        apiService.getTeachers().enqueue(object : Callback<TeacherListResponse> {
+            override fun onResponse(call: Call<TeacherListResponse>, response: Response<TeacherListResponse>) {
+                pd.dismiss()
+                if (response.isSuccessful) {
+                    val data = response.body()?.data ?: emptyList()
+                    guruList.clear()
+                    guruList.addAll(data)
+                    adapter.updateData(guruList)
+                } else {
+                    Toast.makeText(this@RekapKehadiranGuru, "Gagal memuat guru", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<TeacherListResponse>, t: Throwable) {
+                pd.dismiss()
+                Toast.makeText(this@RekapKehadiranGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+    
+    private fun fetchTeacherHistory(teacherId: Int, callback: (List<TeachingAttendanceItem>) -> Unit) {
+         val pd = android.app.ProgressDialog(this)
+         pd.setMessage("Memuat riwayat kehadiran...")
+         pd.show()
+         
+         apiService.getTeacherAttendanceAdmin(id = teacherId).enqueue(object : Callback<List<TeachingAttendanceItem>> {
+             override fun onResponse(call: Call<List<TeachingAttendanceItem>>, response: Response<List<TeachingAttendanceItem>>) {
+                 pd.dismiss()
+                 if (response.isSuccessful) {
+                     val list = response.body() ?: emptyList()
+                     if (list.isEmpty()) {
+                         Toast.makeText(this@RekapKehadiranGuru, "Belum ada data kehadiran", Toast.LENGTH_SHORT).show()
+                     }
+                     callback(list)
+                 } else {
+                     Toast.makeText(this@RekapKehadiranGuru, "Gagal memuat riwayat", Toast.LENGTH_SHORT).show()
+                 }
+             }
+             override fun onFailure(call: Call<List<TeachingAttendanceItem>>, t: Throwable) {
+                 pd.dismiss()
+                 Toast.makeText(this@RekapKehadiranGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+             }
+         })
     }
 
     private fun initView() {
@@ -63,17 +113,20 @@ class RekapKehadiranGuru : AppCompatActivity() {
         recyclerView.adapter = adapter
     }
 
-    private fun showPopupDetailGuru(guru: Guru) {
+    private fun showPopupDetailGuru(guru: TeacherItem) {
         val inflater = LayoutInflater.from(this)
         val popupView = inflater.inflate(R.layout.popup_guru_detail, null)
 
         // Set data guru
-        popupView.findViewById<TextView>(R.id.tvPopupNama).text = guru.nama
-        popupView.findViewById<TextView>(R.id.tvPopupNip).text = guru.nip
-        popupView.findViewById<TextView>(R.id.tvPopupMapel).text = guru.mataPelajaran
+        popupView.findViewById<TextView>(R.id.tvPopupNama).text = guru.name
+        popupView.findViewById<TextView>(R.id.tvPopupNip).text = guru.nip ?: "-"
+        popupView.findViewById<TextView>(R.id.tvPopupMapel).text = guru.mapel
 
         val container = popupView.findViewById<LinearLayout>(R.id.containerKehadiran)
-        setupDataKehadiranGuru(container, guru)
+        
+        fetchTeacherHistory(guru.id) { history ->
+            setupDataKehadiranGuru(container, history)
+        }
 
         val popupWindow = PopupWindow(
             popupView,
@@ -109,62 +162,47 @@ class RekapKehadiranGuru : AppCompatActivity() {
         }
     }
 
-    private fun setupDataKehadiranGuru(container: LinearLayout, guru: Guru) {
+    private fun setupDataKehadiranGuru(container: LinearLayout, history: List<TeachingAttendanceItem>) {
         container.removeAllViews()
 
-        getGuruKehadiranData(guru).forEach { kehadiran ->
+        history.forEach { kehadiran ->
             val itemView = LayoutInflater.from(this)
                 .inflate(R.layout.item_kehadiran_popup, container, false)
 
-            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.tanggal
-            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = kehadiran.mataPelajaranKelas
-            itemView.findViewById<TextView>(R.id.tvJam).text = kehadiran.jam
+            itemView.findViewById<TextView>(R.id.tvTanggal).text = kehadiran.date
+            // Check if schedule is null
+            val mapel = kehadiran.schedule?.subjectInfo?.name ?: "-"
+            val kelas = kehadiran.schedule?.classInfo?.name ?: "-"
+            itemView.findViewById<TextView>(R.id.tvMapelKelas).text = "$mapel / $kelas"
+            itemView.findViewById<TextView>(R.id.tvJam).text = "${kehadiran.schedule?.startTime ?: "-"} - ${kehadiran.schedule?.endTime ?: "-"}"
             itemView.findViewById<TextView>(R.id.tvStatus).text = kehadiran.status
-            itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan
+            // itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan // No reason in basic model, maybe in future
 
             val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
             when (kehadiran.status.lowercase()) {
-                "hadir" -> tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                "sakit" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
-                "izin" -> tvStatus.setTextColor(Color.parseColor("#2196F3"))
-                "alpha" -> tvStatus.setTextColor(Color.parseColor("#F44336"))
-                "terlambat" -> tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                "present" -> {
+                    tvStatus.text = "Hadir"
+                    tvStatus.setTextColor(Color.parseColor("#4CAF50"))
+                }
+                "sakit" -> {
+                     tvStatus.text = "Sakit"
+                     tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                }
+                "izin" -> {
+                     tvStatus.text = "Izin"
+                     tvStatus.setTextColor(Color.parseColor("#2196F3"))
+                }
+                "absent" -> {
+                     tvStatus.text = "Alpha"
+                     tvStatus.setTextColor(Color.parseColor("#F44336"))
+                }
+                 "late" -> {
+                     tvStatus.text = "Terlambat"
+                     tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                }
             }
 
             container.addView(itemView)
-        }
-    }
-
-    private fun getGuruKehadiranData(guru: Guru): List<KehadiranGuru> {
-        return when (guru.nomor) {
-            "1" -> listOf(
-                KehadiranGuru("Senin, 7 Januari 2026", "Matematika / XII RPL 1", "07:00 - 08:30", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Selasa, 8 Januari 2026", "Matematika / XII RPL 2", "08:45 - 10:15", "Hadir", "Mengajar dengan baik"),
-                KehadiranGuru("Rabu, 9 Januari 2026", "Matematika / XI RPL 1", "10:30 - 12:00", "Izin", "Izin dinas"),
-                KehadiranGuru("Kamis, 10 Januari 2026", "Matematika / XI RPL 2", "13:15 - 14:45", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Jumat, 11 Januari 2026", "Matematika / X RPL 1", "07:00 - 08:30", "Terlambat", "Terlambat 10 menit")
-            )
-            "2" -> listOf(
-                KehadiranGuru("Senin, 7 Januari 2026", "Bahasa Indonesia / XII TKJ 1", "08:45 - 10:15", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Selasa, 8 Januari 2026", "Bahasa Indonesia / XII TKJ 2", "10:30 - 12:00", "Hadir", "Mengajar dengan baik"),
-                KehadiranGuru("Rabu, 9 Januari 2026", "Bahasa Indonesia / XI TKJ 1", "13:15 - 14:45", "Sakit", "Izin sakit"),
-                KehadiranGuru("Kamis, 10 Januari 2026", "Bahasa Indonesia / XI TKJ 2", "07:00 - 08:30", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Jumat, 11 Januari 2026", "Bahasa Indonesia / X TKJ 1", "08:45 - 10:15", "Hadir", "Mengajar dengan baik")
-            )
-            "3" -> listOf(
-                KehadiranGuru("Senin, 7 Januari 2026", "IPA / XII MM 1", "10:30 - 12:00", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Selasa, 8 Januari 2026", "IPA / XII MM 2", "13:15 - 14:45", "Hadir", "Mengajar dengan baik"),
-                KehadiranGuru("Rabu, 9 Januari 2026", "IPA / XI MM 1", "07:00 - 08:30", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Kamis, 10 Januari 2026", "IPA / XI MM 2", "08:45 - 10:15", "Alpha", "Tidak hadir tanpa keterangan"),
-                KehadiranGuru("Jumat, 11 Januari 2026", "IPA / X MM 1", "10:30 - 12:00", "Hadir", "Mengajar dengan baik")
-            )
-            else -> listOf(
-                KehadiranGuru("Senin, 7 Januari 2026", "${guru.mataPelajaran} / XII", "07:00 - 08:30", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Selasa, 8 Januari 2026", "${guru.mataPelajaran} / XI", "08:45 - 10:15", "Hadir", "Mengajar dengan baik"),
-                KehadiranGuru("Rabu, 9 Januari 2026", "${guru.mataPelajaran} / X", "10:30 - 12:00", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Kamis, 10 Januari 2026", "${guru.mataPelajaran} / XII", "13:15 - 14:45", "Hadir", "Mengajar sesuai jadwal"),
-                KehadiranGuru("Jumat, 11 Januari 2026", "${guru.mataPelajaran} / XI", "07:00 - 08:30", "Hadir", "Mengajar dengan baik")
-            )
         }
     }
 
@@ -264,30 +302,13 @@ class RekapKehadiranGuru : AppCompatActivity() {
         }
     }
 
-    // Data class untuk guru
-    data class Guru(
-        val nomor: String,
-        val nama: String,
-        val nip: String,
-        val mataPelajaran: String
-    )
-
-    // Data class untuk kehadiran guru
-    data class KehadiranGuru(
-        val tanggal: String,
-        val mataPelajaranKelas: String,
-        val jam: String,
-        val status: String,
-        val keterangan: String
-    )
-
     // Adapter untuk RecyclerView dengan filter
     class GuruAdapter(
-        private var guruList: List<Guru>,
-        private val onLihatClickListener: (Guru) -> Unit
+        private var guruList: List<TeacherItem>,
+        private val onLihatClickListener: (TeacherItem) -> Unit
     ) : RecyclerView.Adapter<GuruAdapter.GuruViewHolder>() {
 
-        private var filteredList: List<Guru> = guruList
+        private var filteredList: List<TeacherItem> = guruList
 
         inner class GuruViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val tvNomor: TextView = itemView.findViewById(R.id.tvNomor)
@@ -314,10 +335,10 @@ class RekapKehadiranGuru : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: GuruViewHolder, position: Int) {
             val guru = filteredList[position]
-            holder.tvNomor.text = guru.nomor
-            holder.tvNama.text = guru.nama
-            holder.tvTelepon.text = guru.nip
-            holder.tvMataPelajaran.text = guru.mataPelajaran
+            holder.tvNomor.text = (position + 1).toString()
+            holder.tvNama.text = guru.name
+            holder.tvTelepon.text = guru.nip ?: "-"
+            holder.tvMataPelajaran.text = guru.mapel
         }
 
         override fun getItemCount(): Int = filteredList.size
@@ -329,11 +350,17 @@ class RekapKehadiranGuru : AppCompatActivity() {
             } else {
                 val lowercaseQuery = query.lowercase()
                 guruList.filter {
-                    it.nama.lowercase().contains(lowercaseQuery) ||
-                            it.nip.lowercase().contains(lowercaseQuery) ||
-                            it.mataPelajaran.lowercase().contains(lowercaseQuery)
+                    it.name.lowercase().contains(lowercaseQuery) ||
+                            (it.nip ?: "").lowercase().contains(lowercaseQuery) ||
+                            it.mapel.lowercase().contains(lowercaseQuery)
                 }
             }
+            notifyDataSetChanged()
+        }
+        
+        fun updateData(newData: List<TeacherItem>) {
+            guruList = newData
+            filteredList = newData
             notifyDataSetChanged()
         }
     }
