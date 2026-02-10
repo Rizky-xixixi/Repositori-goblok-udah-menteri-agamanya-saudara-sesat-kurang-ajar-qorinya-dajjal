@@ -148,6 +148,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- ========== PROFILE ACTIVITY ========== -->
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <!-- ========== REKAP ACTIVITIES (DARI MESARITAMOBILE) ========== -->
         <activity
             android:name=".RekapKehadiranSiswa"
@@ -187,11 +193,6 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- ========== RIWAYAT ACTIVITIES (DARI MESARITAMOBILE) ========== -->
-        <activity
-            android:name=".RiwayatKehadiranSiswa"
-            android:exported="false"
-            android:screenOrientation="portrait" />
 
         <!-- ========== RIWAYAT WAKA (BARU) ========== -->
         <activity

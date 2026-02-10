@@ -116,42 +116,72 @@ class JadwalHarianSiswaActivity : AppCompatActivity() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val dateStr = dateFormat.format(selectedDate.time)
 
+        // Try the wrapped response first
         apiService.getStudentSchedules(date = dateStr).enqueue(object : Callback<StudentScheduleResponse> {
             override fun onResponse(call: Call<StudentScheduleResponse>, response: Response<StudentScheduleResponse>) {
                 if (response.isSuccessful) {
                     val data = response.body()
                     if (data != null) {
                         processApiData(data)
+                    } else {
+                        jadwalList.clear()
+                        adapter.notifyDataSetChanged()
                     }
                 } else {
-                    Toast.makeText(this@JadwalHarianSiswaActivity, "Gagal memuat jadwal", Toast.LENGTH_SHORT).show()
+                    // Try list format as fallback
+                    loadSchedulesAsList(dateStr)
                 }
             }
 
             override fun onFailure(call: Call<StudentScheduleResponse>, t: Throwable) {
-                Toast.makeText(this@JadwalHarianSiswaActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Schedule load error: ${t.message}", t)
+                // Try list format as fallback
+                loadSchedulesAsList(dateStr)
+            }
+        })
+    }
+
+    private fun loadSchedulesAsList(dateStr: String) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        
+        apiService.getStudentSchedulesList(date = dateStr).enqueue(object : Callback<List<com.example.ritamesa.data.model.StudentScheduleItem>> {
+            override fun onResponse(
+                call: Call<List<com.example.ritamesa.data.model.StudentScheduleItem>>,
+                response: Response<List<com.example.ritamesa.data.model.StudentScheduleItem>>
+            ) {
+                if (response.isSuccessful) {
+                    val items = response.body() ?: emptyList()
+                    processScheduleItems(items)
+                } else {
+                    Log.d(TAG, "Schedule API error: ${response.code()}")
+                    jadwalList.clear()
+                    adapter.notifyDataSetChanged()
+                }
+            }
+
+            override fun onFailure(call: Call<List<com.example.ritamesa.data.model.StudentScheduleItem>>, t: Throwable) {
+                Log.e(TAG, "Schedule list load error: ${t.message}", t)
+                jadwalList.clear()
+                adapter.notifyDataSetChanged()
             }
         })
     }
 
     private fun processApiData(data: StudentScheduleResponse) {
+        processScheduleItems(data.items)
+    }
+
+    private fun processScheduleItems(items: List<com.example.ritamesa.data.model.StudentScheduleItem>) {
         jadwalList.clear()
         
-        data.items.forEach { item ->
-            // Map to JadwalHarianItem(mataPelajaran: String, sesi: String)
-            // Sesi usually "07:00 - 08:00"
-            // We can also include Teacher info
+        items.forEach { item ->
             val teacherName = item.teacher?.user?.name ?: "Guru"
             val roomName = if (item.room != null) " - Ruang ${item.room}" else ""
             
             jadwalList.add(JadwalHarianItem(
-                mataPelajaran = item.subjectName ?: "Mapel",
+                mataPelajaran = item.displaySubjectName,
                 sesi = "${item.startTime} - ${item.endTime} ($teacherName)$roomName"
             ))
-        }
-
-        if (jadwalList.isEmpty()) {
-            Toast.makeText(this, "Tidak ada jadwal", Toast.LENGTH_SHORT).show()
         }
 
         adapter.notifyDataSetChanged()

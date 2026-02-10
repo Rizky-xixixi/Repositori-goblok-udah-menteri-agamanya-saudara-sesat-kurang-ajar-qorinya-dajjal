@@ -101,20 +101,57 @@ class RiwayatKehadiranKelasPengurusActivity : AppCompatActivity() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val dateStr = dateFormat.format(currentDate)
 
+        // Try class/attendance endpoint first (for class officers/pengurus)
         apiService.getClassAttendance(fromDate = dateStr, toDate = dateStr).enqueue(object : Callback<List<HomeroomAttendanceItem>> {
             override fun onResponse(call: Call<List<HomeroomAttendanceItem>>, response: Response<List<HomeroomAttendanceItem>>) {
                 if (response.isSuccessful) {
                     val data = response.body() ?: emptyList()
                     processApiData(data)
                 } else {
-                    Toast.makeText(this@RiwayatKehadiranKelasPengurusActivity, "Gagal memuat data", Toast.LENGTH_SHORT).show()
+                    // Fallback: try homeroom attendance (in case pengurus is also a regular student)
+                    android.util.Log.e("RiwayatPengurus", "class/attendance failed: ${response.code()} - ${response.message()}")
+                    loadFallbackData(dateStr)
                 }
             }
 
             override fun onFailure(call: Call<List<HomeroomAttendanceItem>>, t: Throwable) {
-                Toast.makeText(this@RiwayatKehadiranKelasPengurusActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("RiwayatPengurus", "class/attendance error: ${t.message}", t)
+                loadFallbackData(dateStr)
             }
         })
+    }
+
+    private fun loadFallbackData(dateStr: String) {
+        val apiService = ApiClient.getClient(this).create(ApiService::class.java)
+        
+        // Fallback to homeroom/attendance which works for homeroom class context
+        apiService.getHomeroomAttendance(fromDate = dateStr, toDate = dateStr).enqueue(object : Callback<List<HomeroomAttendanceItem>> {
+            override fun onResponse(call: Call<List<HomeroomAttendanceItem>>, response: Response<List<HomeroomAttendanceItem>>) {
+                if (response.isSuccessful) {
+                    val data = response.body() ?: emptyList()
+                    processApiData(data)
+                } else {
+                    // Show empty state with message
+                    android.util.Log.e("RiwayatPengurus", "homeroom/attendance failed: ${response.code()}")
+                    showEmptyState("Data kehadiran tidak tersedia")
+                }
+            }
+
+            override fun onFailure(call: Call<List<HomeroomAttendanceItem>>, t: Throwable) {
+                android.util.Log.e("RiwayatPengurus", "homeroom/attendance error: ${t.message}", t)
+                showEmptyState("Gagal memuat data: ${t.message}")
+            }
+        })
+    }
+
+    private fun showEmptyState(message: String) {
+        riwayatList.clear()
+        adapter.notifyDataSetChanged()
+        txtHadirCount.text = "0"
+        txtIzinCount.text = "0"
+        txtSakitCount.text = "0"
+        txtAlphaCount.text = "0"
+        txtJumlah.text = message
     }
 
     private fun processApiData(items: List<HomeroomAttendanceItem>) {

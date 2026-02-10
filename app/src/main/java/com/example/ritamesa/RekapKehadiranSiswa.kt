@@ -184,16 +184,16 @@ class RekapKehadiranSiswa : AppCompatActivity() {
             itemView.findViewById<TextView>(R.id.tvKeterangan).text = "-" // Reason not in basic item, check model
 
             val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
-            when (kehadiran.status.lowercase()) {
+            when (kehadiran.status?.lowercase()) {
                 "present" -> {
                     tvStatus.text = "Hadir"
                     tvStatus.setTextColor(Color.parseColor("#4CAF50"))
                 }
-                "sakit" -> {
+                "sick" -> {
                      tvStatus.text = "Sakit"
                      tvStatus.setTextColor(Color.parseColor("#FF9800"))
                 }
-                "izin" -> {
+                "excused" -> {
                      tvStatus.text = "Izin"
                      tvStatus.setTextColor(Color.parseColor("#2196F3"))
                 }

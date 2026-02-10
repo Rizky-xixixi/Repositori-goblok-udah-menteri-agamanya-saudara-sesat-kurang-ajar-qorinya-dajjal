@@ -67,8 +67,8 @@ class TotalJurusan : AppCompatActivity() {
         
         apiService.getMajors().enqueue(object : Callback<MajorListResponse> {
             override fun onResponse(call: Call<MajorListResponse>, response: Response<MajorListResponse>) {
-                if (response.isSuccessful && response.body() != null) {
-                    val majors = response.body()!!.data
+                if (response.isSuccessful) {
+                    val majors = response.body()?.data ?: emptyList()
                     
                     listJurusanRaw.clear()
                     listJurusanRaw.addAll(majors)

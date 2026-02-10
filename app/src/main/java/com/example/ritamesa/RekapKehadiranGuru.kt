@@ -179,7 +179,7 @@ class RekapKehadiranGuru : AppCompatActivity() {
             // itemView.findViewById<TextView>(R.id.tvKeterangan).text = kehadiran.keterangan // No reason in basic model, maybe in future
 
             val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
-            when (kehadiran.status.lowercase()) {
+            when (kehadiran.status?.lowercase()) {
                 "present" -> {
                     tvStatus.text = "Hadir"
                     tvStatus.setTextColor(Color.parseColor("#4CAF50"))

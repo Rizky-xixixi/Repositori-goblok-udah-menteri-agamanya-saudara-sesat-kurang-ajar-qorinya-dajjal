@@ -213,10 +213,10 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
             }
 
             val apiStatus = when(keterangan.lowercase()) {
-                "sakit" -> "sakit"
-                "izin" -> "izin"
-                "izin pulang" -> "izin_pulang"
-                else -> "izin"
+                "sakit" -> "sick"
+                "izin" -> "excused"
+                "izin pulang" -> "leave"
+                else -> "excused"
             }
 
             val apiDate = try {
@@ -226,7 +226,8 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
                 type = apiStatus,
-                date = apiDate,
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = catatan.ifEmpty { "Izin Guru (Wakel): $keterangan" },
                 scheduleId = currentJadwal.id
             )
@@ -274,10 +275,10 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
             }
 
             val apiStatus = when(keterangan.lowercase()) {
-                "sakit" -> "sakit"
-                "izin" -> "izin"
-                "izin pulang" -> "izin_pulang"
-                else -> "izin"
+                "sakit" -> "sick"
+                "izin" -> "excused"
+                "izin pulang" -> "leave"
+                else -> "excused"
             }
 
             val apiDate = try {
@@ -287,7 +288,8 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
                 type = apiStatus,
-                date = apiDate,
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = catatan.ifEmpty { "Izin Guru (Wakel): $keterangan" },
                 scheduleId = currentJadwal.id
             )
@@ -339,8 +341,9 @@ class DetailJadwalWakelActivity : AppCompatActivity() {
             } catch (e: Exception) { sdfApi.format(Date()) }
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
-                type = "izin", 
-                date = apiDate,
+                type = "excused", 
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = "Dispensasi Siswa (By Wakel): $namaSiswa. ${catatan.ifEmpty { "" }}".trim(),
                 scheduleId = currentJadwal.id,
                 studentId = studentId

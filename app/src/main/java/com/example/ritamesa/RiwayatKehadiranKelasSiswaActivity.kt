@@ -91,10 +91,9 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
     }
 
     private fun loadDataFromApi() {
-        Toast.makeText(this, "Memuat data...", Toast.LENGTH_SHORT).show()
-        
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
-        // Fetch current month by default or ALL? Let's fetch ALL (no params)
+        
+        // Fetch student's own attendance history
         apiService.getStudentAttendanceHistory().enqueue(object : Callback<List<StudentAttendanceItem>> {
             override fun onResponse(
                 call: Call<List<StudentAttendanceItem>>,
@@ -102,16 +101,32 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
             ) {
                 if (response.isSuccessful) {
                     val items = response.body() ?: emptyList()
-                    processApiData(items)
+                    if (items.isEmpty()) {
+                        showEmptyState("Belum ada data kehadiran")
+                    } else {
+                        processApiData(items)
+                    }
                 } else {
-                    Toast.makeText(this@RiwayatKehadiranKelasSiswaActivity, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("RiwayatSiswa", "API error: ${response.code()} - ${response.message()}")
+                    showEmptyState("Gagal memuat data")
                 }
             }
 
             override fun onFailure(call: Call<List<StudentAttendanceItem>>, t: Throwable) {
-                Toast.makeText(this@RiwayatKehadiranKelasSiswaActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("RiwayatSiswa", "API failure: ${t.message}", t)
+                showEmptyState("Error koneksi")
             }
         })
+    }
+
+    private fun showEmptyState(message: String) {
+        riwayatList.clear()
+        recyclerRiwayat.adapter?.notifyDataSetChanged()
+        txtHadirCount.text = "0"
+        txtIzinCount.text = "0"
+        txtSakitCount.text = "0"
+        txtAlphaCount.text = "0"
+        findViewById<TextView>(R.id.text_jumlah_siswa).text = message
     }
 
     private fun processApiData(items: List<StudentAttendanceItem>) {
@@ -120,16 +135,17 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
         totalHadir = 0; totalIzin = 0; totalSakit = 0; totalAlpha = 0
 
         items.forEach { item ->
-            val statusLocal = when (item.status) {
+            val status = item.status ?: "absent"
+            val statusLocal = when (status) {
                 "present" -> "hadir"
                 "late" -> "hadir"
                 "sick" -> "sakit"
                 "excused" -> "izin"
-                "absent" -> "tidak hadir" // Maps to alpha logic in Adapter
+                "absent" -> "tidak hadir"
                 else -> "tidak hadir"
             }
 
-            val keterangan = when (item.status) {
+            val keterangan = when (status) {
                 "present" -> "Hadir Tepat Waktu"
                 "late" -> "Terlambat"
                 "sick" -> "Sakit"
@@ -148,8 +164,8 @@ class RiwayatKehadiranKelasSiswaActivity : AppCompatActivity() {
             val timeRange = "${item.schedule?.startTime ?: ""} - ${item.schedule?.endTime ?: ""}"
             
             riwayatList.add(RiwayatSiswaItem(
-                id = timeRange, // Replacing "1-2" with time range
-                mataPelajaran = item.schedule?.subjectInfo?.name ?: "Unknown",
+                id = timeRange,
+                mataPelajaran = item.schedule?.subjectInfo?.name ?: "Mata Pelajaran",
                 keterangan = keterangan,
                 status = statusLocal
             ))

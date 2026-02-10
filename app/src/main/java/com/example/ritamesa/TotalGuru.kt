@@ -17,6 +17,7 @@ class TotalGuru : AppCompatActivity() {
     // ===== DATA LIST =====
     private var listGuru = mutableListOf<com.example.ritamesa.data.model.TeacherItem>()
     private var filteredList = mutableListOf<com.example.ritamesa.data.model.TeacherItem>()
+    private var listSubjects = mutableListOf<com.example.ritamesa.data.model.SubjectItem>()
 
     // ===== COMPONENTS =====
     private lateinit var recyclerView: RecyclerView
@@ -34,6 +35,7 @@ class TotalGuru : AppCompatActivity() {
         setupRecyclerView()
         setupActions()
         loadTeachersFromApi()
+        fetchSubjects()
     }
 
     private fun loadTeachersFromApi() {
@@ -62,6 +64,20 @@ class TotalGuru : AppCompatActivity() {
             override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherListResponse>, t: Throwable) {
                 pd.dismiss()
                 Toast.makeText(this@TotalGuru, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun fetchSubjects() {
+        apiService.getSubjects(-1).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.SubjectListResponse> {
+            override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.SubjectListResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.SubjectListResponse>) {
+                if (response.isSuccessful) {
+                    listSubjects.clear()
+                    listSubjects.addAll(response.body()?.data ?: emptyList())
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.SubjectListResponse>, t: Throwable) {
+                Log.e("TotalGuru", "Failed to fetch subjects", t)
             }
         })
     }
@@ -369,23 +385,24 @@ class TotalGuru : AppCompatActivity() {
     }
 
     private fun showMapelDropdown(editText: EditText?) {
-        val mapelList = arrayOf(
-            "Matematika", "Bahasa Indonesia", "Bahasa Inggris",
-            "IPAS", "Bahasa Jawa", "PKN", "PAI", "Olahraga",
-            "Informatika", "BK", "MPP", "MPKK", "PKDK",
-            "Sejarah", "Bahasa Jepang"
-        )
+        if (listSubjects.isEmpty()) {
+            Toast.makeText(this, "Data mapel belum dimuat, mencoba lagi...", Toast.LENGTH_SHORT).show()
+            fetchSubjects()
+            return
+        }
+
+        val items = listSubjects.map { it.name }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle("Pilih Mapel")
-            .setItems(mapelList) { _, which ->
-                editText?.setText(mapelList[which])
+            .setItems(items) { _, which ->
+                editText?.setText(items[which])
             }
             .show()
     }
 
     private fun showKeteranganDropdown(editText: EditText?) {
-        val keteranganList = arrayOf("Guru", "Waka", "Admin", "Kepsek")
+        val keteranganList = arrayOf("Guru", "Waka", "Admin")
 
         AlertDialog.Builder(this)
             .setTitle("Pilih Keterangan")

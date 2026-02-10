@@ -63,18 +63,27 @@
         android:textSize="16sp"
         android:textColor="@color/gray"
         android:gravity="center"
-        android:layout_marginBottom="24dp"/>
+        android:layout_marginBottom="4dp"/>
 
-    <!-- Edit Profile Button -->
-    <Button
-        android:id="@+id/btn_edit_profile"
+    <TextView
+        android:id="@+id/txt_email"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Ubah Password"
-        android:backgroundTint="@color/blue"
-        android:textColor="@color/white"
-        android:padding="12dp"
-        android:layout_marginBottom="12dp"/>
+        android:text=""
+        android:textSize="14sp"
+        android:textColor="@color/gray"
+        android:gravity="center"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:id="@+id/txt_additional_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="14sp"
+        android:textColor="@color/gray"
+        android:gravity="center"
+        android:layout_marginBottom="24dp"/>
 
     <!-- Logout Button -->
     <Button

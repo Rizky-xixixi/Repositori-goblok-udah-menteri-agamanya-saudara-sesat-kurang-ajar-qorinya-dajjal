@@ -365,21 +365,18 @@ class JadwalPembelajaranGuru : AppCompatActivity() {
     }
 
     private fun showKelasJurusanDialog(etKelasJurusan: EditText?) {
-        val kelasJurusanList = arrayOf(
-            "10 Multimedia 1", "10 Multimedia 2", "10 Teknik Komputer Jaringan",
-            "10 Rekayasa Perangkat Lunak", "10 Akuntansi 1", "10 Akuntansi 2",
-            "10 Otomatisasi Tata Kelola Perkantoran", "11 Multimedia 1", "11 Multimedia 2",
-            "11 Teknik Komputer Jaringan", "11 Rekayasa Perangkat Lunak", "11 Akuntansi 1",
-            "11 Akuntansi 2", "11 Otomatisasi Tata Kelola Perkantoran", "12 Multimedia 1",
-            "12 Multimedia 2", "12 Teknik Komputer Jaringan", "12 Rekayasa Perangkat Lunak",
-            "12 Akuntansi 1", "12 Akuntansi 2", "12 Otomatisasi Tata Kelola Perkantoran",
-            "12 Design Komunikasi Visual 1", "12 Design Komunikasi Visual 2"
-        )
+        if (classList.isEmpty()) {
+            Toast.makeText(this, "Data kelas belum dimuat", Toast.LENGTH_SHORT).show()
+            loadClassesFromApi()
+            return
+        }
+
+        val items = classList.map { it.name }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle("Pilih Kelas/Jurusan")
-            .setItems(kelasJurusanList) { _, which ->
-                etKelasJurusan?.setText(kelasJurusanList[which])
+            .setItems(items) { _, which ->
+                etKelasJurusan?.setText(items[which])
             }
             .setNegativeButton("Batal", null)
             .show()
@@ -456,9 +453,9 @@ class JadwalPembelajaranGuru : AppCompatActivity() {
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         apiService.getClasses().enqueue(object : Callback<ClassListResponse> {
             override fun onResponse(call: Call<ClassListResponse>, response: Response<ClassListResponse>) {
-                if (response.isSuccessful && response.body() != null) {
+                if (response.isSuccessful) {
                     classList.clear()
-                    classList.addAll(response.body()!!.data)
+                    classList.addAll(response.body()?.data ?: emptyList())
                     filterClasses(searchEditText.text.toString())
                 }
             }

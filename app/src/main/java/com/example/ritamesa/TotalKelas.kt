@@ -26,7 +26,6 @@ class TotalKelas : AppCompatActivity() {
     private val listKelasDisplay = ArrayList<Kelas>()
 
     // ===== DATA DROPDOWN =====
-    private val listJurusan = listOf("RPL", "TKJ", "MM", "TKR", "TSM", "TITL", "AK", "AP", "PH")
     private val listTingkatan = listOf("X", "XI", "XII")
     private val listRombel = listOf("1", "2", "3", "4", "5", "6")
 
@@ -76,8 +75,8 @@ class TotalKelas : AppCompatActivity() {
         
         apiService.getClasses().enqueue(object : Callback<ClassListResponse> {
             override fun onResponse(call: Call<ClassListResponse>, response: Response<ClassListResponse>) {
-                if (response.isSuccessful && response.body() != null) {
-                    val classItems = response.body()!!.data
+                if (response.isSuccessful) {
+                    val classItems = response.body()?.data ?: emptyList()
                     
                     val mappedClasses = classItems.map { item ->
                         Kelas(
@@ -111,9 +110,9 @@ class TotalKelas : AppCompatActivity() {
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         apiService.getMajors().enqueue(object : Callback<MajorListResponse> {
             override fun onResponse(call: Call<MajorListResponse>, response: Response<MajorListResponse>) {
-                if (response.isSuccessful && response.body() != null) {
+                if (response.isSuccessful) {
                     majorsForDropdown.clear()
-                    majorsForDropdown.addAll(response.body()!!.data)
+                    majorsForDropdown.addAll(response.body()?.data ?: emptyList())
                 }
             }
             override fun onFailure(call: Call<MajorListResponse>, t: Throwable) {}

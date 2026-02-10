@@ -168,39 +168,24 @@ class AbsensiSiswaActivity : AppCompatActivity() {
                     
                     if (matchedItem != null) {
                         matchedItem.attendances.forEach { attendance ->
-                             // Find student in siswaList
-                             // We assume we can match, but attendance object from API currently 
-                             // might vary. Let's look at `Attendance` model.
-                             // `val id: Int, val status: String, ..., val teacher: TeacherProfile?`
-                             // It does NOT have studentId directly visible in `Attendance` model 
-                             // unless `student` field is present.
-                             // Wait, `Attendance` model in Models.kt:
-                             // data class Attendance(val id: Int, val status: String, ..., val schedule: JadwalItem?, val teacher: TeacherProfile?)
-                             // It DOES NOT have student!
-                             
-                             // This is a problem. I cannot map attendance to student without student ID.
-                             // However, `ClassController::classAttendanceByDate` uses `Attendance` resource?
-                             // No, it returns raw collection or simple mapping.
-                             // `AttendanceController` lines 489:
-                             // 'attendances' => $schedule->attendances->map(function ($attendance) { ... })
-                             
-                             // I need to ensure the backend returns student_id or student object.
-                             // The backend `AttendanceController::classAttendanceByDate` uses:
-                             // $schedule->attendances->where('date', $date)
-                             // It serializes using default serialization provided by `Attendance` model or resource.
-                             
-                             // If `Attendance` model has `student` relationship loaded, it will be in JSON.
-                             // In `AttendanceController.php`:
-                             // $schedule->load(['attendances' => function ($query) use ($date) { ... }]);
-                             // It doesn't explicitly load `attendances.student`.
-                             
-                             // I should assume it might NOT load student.
-                             // BUT, `AbsensiSiswaActivity` requires it.
-                             
-                             // For now, I will skip mapping existing attendance to avoid crashing if data is missing.
-                             // Providing "none" is safer than crashing.
-                             // Users can just re-take attendance.
+                            // Try to match by studentId or student.id
+                            val attendanceStudentId = attendance.studentId ?: attendance.student?.id
+                            
+                            if (attendanceStudentId != null) {
+                                val matchedSiswa = siswaList.find { it.id == attendanceStudentId }
+                                if (matchedSiswa != null) {
+                                    val statusLocal = when (attendance.status) {
+                                        "present", "late" -> "hadir"
+                                        "excused" -> "izin"
+                                        "sick" -> "sakit"
+                                        "absent" -> "alpha"
+                                        else -> "none"
+                                    }
+                                    matchedSiswa.status = statusLocal
+                                }
+                            }
                         }
+                        adapter.notifyDataSetChanged()
                     }
                 }
             }
@@ -238,7 +223,7 @@ class AbsensiSiswaActivity : AppCompatActivity() {
         absensiData.forEach { siswa ->
             val apiStatus = when (siswa.status.lowercase()) {
                 "hadir" -> "present"
-                "izin" -> "izin"
+                "izin" -> "excused"
                 "sakit" -> "sick"
                 "alpha" -> "absent"
                 "abc" -> "absent" // Typo safety

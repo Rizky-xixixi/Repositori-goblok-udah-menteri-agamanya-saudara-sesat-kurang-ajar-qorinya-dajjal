@@ -50,8 +50,8 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         apiService.getTeachers().enqueue(object : Callback<TeacherListResponse> {
             override fun onResponse(call: Call<TeacherListResponse>, response: Response<TeacherListResponse>) {
-                if (response.isSuccessful && response.body() != null) {
-                    allGuruList = response.body()!!.data.toMutableList()
+                if (response.isSuccessful) {
+                    allGuruList = (response.body()?.data ?: emptyList()).toMutableList()
                     adapter.updateData(allGuruList)
                 } else {
                     Toast.makeText(this@DataRekapKehadiranGuru, "Gagal mengambil data guru", Toast.LENGTH_SHORT).show()
@@ -101,8 +101,8 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
         apiService.getTeacherAttendanceAdmin(guru.id).enqueue(object : Callback<List<TeachingAttendanceItem>> {
             override fun onResponse(call: Call<List<TeachingAttendanceItem>>, response: Response<List<TeachingAttendanceItem>>) {
                 container.removeView(progressBar)
-                if (response.isSuccessful && response.body() != null) {
-                    val history = response.body()!!
+                if (response.isSuccessful) {
+                    val history = response.body() ?: emptyList()
                     if (history.isEmpty()) {
                         val tvEmpty = TextView(this@DataRekapKehadiranGuru).apply {
                             text = "Tidak ada riwayat kehadiran"
@@ -123,7 +123,7 @@ class DataRekapKehadiranGuru : AppCompatActivity() {
                             itemView.findViewById<TextView>(R.id.tvKeterangan).text = "-"
 
                             val tvStatus = itemView.findViewById<TextView>(R.id.tvStatus)
-                            when (item.status.lowercase()) {
+                            when (item.status?.lowercase()) {
                                 "hadir" -> { tvStatus.text = "Hadir"; tvStatus.setTextColor(Color.parseColor("#4CAF50")) }
                                 "late" -> { tvStatus.text = "Terlambat"; tvStatus.setTextColor(Color.parseColor("#FF9800")) }
                                 "sick" -> { tvStatus.text = "Sakit"; tvStatus.setTextColor(Color.parseColor("#FF9800")) }

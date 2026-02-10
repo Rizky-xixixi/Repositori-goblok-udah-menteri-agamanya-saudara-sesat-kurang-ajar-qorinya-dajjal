@@ -179,8 +179,9 @@ class RiwayatKehadiranGuru1 : AppCompatActivity() {
         apiService.getSchoolAttendanceHistory(date = dateStr, status = apiStatus, role = "Guru")
             .enqueue(object : Callback<SchoolAttendanceResponse> {
                 override fun onResponse(call: Call<SchoolAttendanceResponse>, response: Response<SchoolAttendanceResponse>) {
-                    if (response.isSuccessful && response.body() != null) {
-                        val items = response.body()!!.data.map { apiItem ->
+                    if (response.isSuccessful) {
+                        val responseData = response.body()?.data ?: emptyList()
+                        val items = responseData.map { apiItem ->
                             RiwayatKehadiranGuruWaka(
                                 id = apiItem.id,
                                 nama = apiItem.teacher?.user?.name ?: "Guru",

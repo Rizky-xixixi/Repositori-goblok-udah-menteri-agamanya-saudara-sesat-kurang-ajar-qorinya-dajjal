@@ -2,6 +2,7 @@ package com.example.ritamesa
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
@@ -19,6 +20,10 @@ import java.util.*
 
 class NotifikasiGuruActivity : AppCompatActivity() {
 
+    companion object {
+        private const val TAG = "NotifikasiGuru"
+    }
+
     private lateinit var rvHariIni: RecyclerView
     private lateinit var tvHariTanggal: TextView 
 
@@ -29,6 +34,7 @@ class NotifikasiGuruActivity : AppCompatActivity() {
 
     private lateinit var adapterHariIni: NotifikasiAdapter
     private val dataHariIni = mutableListOf<Map<String, Any>>()
+    private var isLoading = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,7 +93,6 @@ class NotifikasiGuruActivity : AppCompatActivity() {
     private fun refreshNotifications() {
         updateTanggalRealTime()
         loadDataFromApi()
-        Toast.makeText(this, "Notifikasi direfresh", Toast.LENGTH_SHORT).show()
     }
 
     private fun setupRecyclerView() {
@@ -97,24 +102,28 @@ class NotifikasiGuruActivity : AppCompatActivity() {
     }
 
     private fun loadDataFromApi() {
+        if (isLoading) return
+        isLoading = true
+        
         val apiService = ApiClient.getClient(this).create(ApiService::class.java)
         apiService.getNotifications().enqueue(object : Callback<NotificationResponse> {
             override fun onResponse(
                 call: Call<NotificationResponse>,
                 response: Response<NotificationResponse>
             ) {
+                isLoading = false
                 if (response.isSuccessful) {
-                    val data = response.body()
-                    if (data != null) {
-                        processApiData(data)
-                    }
+                    response.body()?.let { processApiData(it) }
                 } else {
-                    Toast.makeText(this@NotifikasiGuruActivity, "Gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, "API error: ${response.code()}")
+                    // Show empty state instead of error toast
                 }
             }
 
             override fun onFailure(call: Call<NotificationResponse>, t: Throwable) {
-                Toast.makeText(this@NotifikasiGuruActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                isLoading = false
+                Log.e(TAG, "Network error", t)
+                // Silently fail - user can pull to refresh
             }
         })
     }

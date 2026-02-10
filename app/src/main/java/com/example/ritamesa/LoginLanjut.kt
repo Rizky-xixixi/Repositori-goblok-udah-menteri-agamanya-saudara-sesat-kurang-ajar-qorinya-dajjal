@@ -68,11 +68,12 @@ class LoginLanjut : AppCompatActivity() {
             }
 
             "Siswa", "Pengurus" -> {
-                // Siswa & Pengurus: Hanya NISN
-                textEmail.text = "NISN"
-                edtEmail.hint = "Masukkan NISN"
-                textPassword.visibility = View.GONE
-                edtPassword.visibility = View.GONE
+                // Siswa & Pengurus: Email & Kata Sandi
+                textEmail.text = "Email"
+                edtEmail.hint = "Masukkan Email"
+                textPassword.visibility = View.VISIBLE
+                edtPassword.visibility = View.VISIBLE
+                textPassword.text = "Kata Sandi"
             }
 
             else -> {
@@ -93,8 +94,13 @@ class LoginLanjut : AppCompatActivity() {
             val username = edtUsername.text.toString().trim()
             val password = edtPassword.text.toString().trim()
 
-            if (username.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Harap isi semua kolom", Toast.LENGTH_SHORT).show()
+            if (username.isEmpty()) {
+                Toast.makeText(this, "Harap isi NISN/Email/Kode", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            
+            if (password.isEmpty()) {
+                Toast.makeText(this, "Harap isi kata sandi", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -105,6 +111,8 @@ class LoginLanjut : AppCompatActivity() {
     private fun performLogin(emailOrId: String, password: String) {
         val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
         val request = com.example.ritamesa.data.model.LoginRequest(emailOrId, password)
+
+        Log.d(TAG, "Attempting login with: login=$emailOrId")
 
         // Show loading (optional: add progress bar)
         Toast.makeText(this, "Sedang masuk...", Toast.LENGTH_SHORT).show()
@@ -122,7 +130,17 @@ class LoginLanjut : AppCompatActivity() {
                         Toast.makeText(this@LoginLanjut, "Respon kosong", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(this@LoginLanjut, "Login gagal: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    // Parse error body for better error message
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "Login failed: code=${response.code()}, message=${response.message()}, body=$errorBody")
+                    
+                    val errorMsg = try {
+                        val json = org.json.JSONObject(errorBody ?: "{}")
+                        json.optString("message", response.message())
+                    } catch (e: Exception) {
+                        response.message()
+                    }
+                    Toast.makeText(this@LoginLanjut, "Login gagal: $errorMsg", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -171,8 +189,7 @@ class LoginLanjut : AppCompatActivity() {
 
         val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
         
-        // Show loading
-        Toast.makeText(this, "Mendaftarkan perangkat...", Toast.LENGTH_SHORT).show()
+        val isPengurus = selectedRole == "Pengurus"
 
         apiService.registerDevice(request).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.Device> {
             override fun onResponse(
@@ -182,24 +199,23 @@ class LoginLanjut : AppCompatActivity() {
                 if (response.isSuccessful) {
                     val device = response.body()
                     if (device != null) {
-                        // SAVE DEVICE ID
                         val sessionManager = com.example.ritamesa.data.pref.SessionManager(this@LoginLanjut)
                         sessionManager.saveDeviceId(device.id)
                         Log.d(TAG, "Device registered: ${device.id}")
-                        
-                        val isPengurus = selectedRole == "Pengurus"
-                        navigateToSiswaDashboard(isPengurus)
-                    } else {
-                        Toast.makeText(this@LoginLanjut, "Gagal registrasi device: Respon kosong", Toast.LENGTH_LONG).show()
                     }
                 } else {
-                    Toast.makeText(this@LoginLanjut, "Gagal registrasi device: ${response.message()}", Toast.LENGTH_LONG).show()
+                    // Device registration failed but don't block login
+                    Log.w(TAG, "Device registration failed: ${response.code()} - ${response.message()}")
                 }
+                // Navigate regardless of device registration result
+                navigateToSiswaDashboard(isPengurus)
             }
 
             override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.Device>, t: Throwable) {
-                Toast.makeText(this@LoginLanjut, "Error registrasi device: ${t.message}", Toast.LENGTH_LONG).show()
-                Log.e(TAG, "Device reg error", t)
+                // Device registration failed but don't block login
+                Log.e(TAG, "Device registration error: ${t.message}", t)
+                // Navigate anyway
+                navigateToSiswaDashboard(isPengurus)
             }
         })
     }

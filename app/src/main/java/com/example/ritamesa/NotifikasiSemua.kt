@@ -451,7 +451,7 @@ class NotifikasiSemua : AppCompatActivity() {
 
             // CHART
             findViewById<ImageButton>(R.id.btnChart).setOnClickListener {
-                startActivity(Intent(this, RiwayatKehadiranSiswa::class.java))
+                startActivity(Intent(this, RiwayatKehadiranSiswa1::class.java))
                 finish()
             }
 

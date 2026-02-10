@@ -156,8 +156,8 @@ class DashboardSiswaActivity : AppCompatActivity() {
 
             txtTanggalSekarang.text = tanggalFormatBesar
             txtTanggalDiJamLayout.text = tanggalFormatBesar
-            txtJamMasuk.text = jamMasukDatabase
-            txtJamPulang.text = jamPulangDatabase
+            
+            fetchSettings()
 
             Log.d(TAG, "Date setup: $tanggalFormatBesar")
 
@@ -228,8 +228,34 @@ class DashboardSiswaActivity : AppCompatActivity() {
             }
 
             override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.DashboardSiswaResponse>, t: Throwable) {
-                Toast.makeText(this@DashboardSiswaActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
-                Log.e(TAG, "Error fetching dashboard", t)
+                Log.e(TAG, "Error fetching dashboard data: ${t.message}", t)
+                Toast.makeText(this@DashboardSiswaActivity, "Gagal memuat data dashboard: ${t.message}", Toast.LENGTH_LONG).show()
+                // Optionally, update UI with empty data or a message
+                updateUI(com.example.ritamesa.data.model.DashboardSiswaResponse(
+                    schedule = emptyList(),
+                    student = null // Assuming student can be null
+                ))
+            }
+        })
+    }
+
+    private fun fetchSettings() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        apiService.getSettings().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.SettingResponse> {
+            override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.SettingResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.SettingResponse>) {
+                if (response.isSuccessful) {
+                    response.body()?.data?.let { settings ->
+                        val start = settings["school_start_time"] ?: "07:00"
+                        val end = settings["school_end_time"] ?: "15:00"
+                        txtJamMasuk.text = if (start.length >= 5) start.substring(0, 5) else start
+                        txtJamPulang.text = if (end.length >= 5) end.substring(0, 5) else end
+                    }
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.SettingResponse>, t: Throwable) {
+                Log.e(TAG, "Failed to fetch settings: ${t.message}", t)
+                Toast.makeText(this@DashboardSiswaActivity, "Gagal memuat pengaturan waktu sekolah: ${t.message}", Toast.LENGTH_LONG).show()
+                // Fallback to defaults already in XML or previously set
             }
         })
     }
@@ -257,8 +283,9 @@ class DashboardSiswaActivity : AppCompatActivity() {
         
         recyclerJadwal.adapter?.notifyDataSetChanged()
         
-        // Update Profile Image
-        if (!data.student.photoUrl.isNullOrEmpty()) {
+        // Update Profile Image (with null safety)
+        val photoUrl = data.student?.photoUrl
+        if (!photoUrl.isNullOrEmpty()) {
             try {
                 // Determine default placeholder based on role
                 val defaultPlaceholder = if (isPengurus) R.drawable.profile_pengurus else R.drawable.profile_siswa
@@ -266,7 +293,7 @@ class DashboardSiswaActivity : AppCompatActivity() {
                 
                 // Load into small profile icon (overlay/toolbar)
                 com.bumptech.glide.Glide.with(this)
-                    .load(data.student.photoUrl)
+                    .load(photoUrl)
                     .circleCrop()
                     .placeholder(smallPlaceholder)
                     .error(smallPlaceholder)
@@ -274,7 +301,7 @@ class DashboardSiswaActivity : AppCompatActivity() {
                     
                 // Load into big profile image
                 com.bumptech.glide.Glide.with(this)
-                    .load(data.student.photoUrl)
+                    .load(photoUrl)
                     .circleCrop()
                     .placeholder(defaultPlaceholder)
                     .error(defaultPlaceholder)

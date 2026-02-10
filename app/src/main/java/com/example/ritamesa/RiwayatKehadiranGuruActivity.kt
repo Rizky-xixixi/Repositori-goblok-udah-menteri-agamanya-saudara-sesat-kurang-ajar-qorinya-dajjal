@@ -83,7 +83,6 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
 
             handler.postDelayed({
                 loadDataFromApi()
-                Toast.makeText(this, "Memuat data untuk tanggal terbaru...", Toast.LENGTH_SHORT).show()
             }, 300)
 
         } catch (e: Exception) {
@@ -181,11 +180,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
 
         updateAngkaTombol()
 
-        val itemCount = filteredData.size
-        Toast.makeText(this,
-            if (itemCount > 0) "Menampilkan $itemCount data untuk $selectedDateStr"
-            else "Tidak ada data untuk $selectedDateStr",
-            Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Date filter applied: ${filteredData.size} items for $selectedDateStr")
     }
 
     private fun setupRecyclerView() {
@@ -207,10 +202,9 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
             dateFilterActive = true
             selectedDate = Calendar.getInstance()
             updateTanggalDisplay()
-            applyDateFilter() // Langsung apply filter tanggal
+            applyDateFilter()
             updateTombolAktif()
             resetTextColors()
-            Toast.makeText(this, "Filter direset, menampilkan data hari ini", Toast.LENGTH_SHORT).show()
         }
 
         btnChart.setOnClickListener {
@@ -244,13 +238,13 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
                     val items = response.body() ?: emptyList()
                     processApiData(items)
                 } else {
-                    Toast.makeText(this@RiwayatKehadiranGuruActivity, "Gagal memuat data: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, "API error: ${response.code()}")
                 }
             }
 
             override fun onFailure(call: Call<List<TeachingAttendanceItem>>, t: Throwable) {
                 isLoading = false
-                Toast.makeText(this@RiwayatKehadiranGuruActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Network error: ${t.message}", t)
             }
         })
     }
@@ -291,7 +285,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         // Otomatis filter untuk tanggal saat ini (hari ini)
         applyDateFilter()
 
-        Toast.makeText(this, "Data riwayat guru untuk ${txtFilterTanggal.text} dimuat", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Loaded ${allData.size} teaching records")
     }
 
     private fun toggleFilter(status: String) {
@@ -377,20 +371,7 @@ class RiwayatKehadiranGuruActivity : AppCompatActivity() {
         txtIzinCount.text = i.toString()
         txtAlphaCount.text = a.toString()
 
-        // Tampilkan informasi filter
-        val itemCount = filteredData.size
-        val statusText = when (activeStatus) {
-            "hadir" -> "hadir"
-            "sakit" -> "sakit"
-            "izin" -> "izin"
-            "alpha" -> "alpha"
-            else -> ""
-        }
-        Toast.makeText(
-            this,
-            "Menampilkan $itemCount data $statusText untuk $selectedDateStr",
-            Toast.LENGTH_SHORT
-        ).show()
+        Log.d(TAG, "Filter $activeStatus: ${filteredData.size} items")
     }
 
     private fun updateTombolAktif() {

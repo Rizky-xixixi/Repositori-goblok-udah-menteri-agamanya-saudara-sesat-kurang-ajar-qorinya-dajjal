@@ -58,6 +58,14 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
         setContentView(R.layout.detail_jadwal_guru)
 
         val jadwalData = intent.getSerializableExtra("JADWAL_DATA") as? DashboardGuruActivity.JadwalData
+        
+        if (jadwalData == null) {
+            Toast.makeText(this, "Data jadwal tidak tersedia", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        
+        currentJadwal = jadwalData
 
         // Inisialisasi view
         val tvNamaMapel: TextView = findViewById(R.id.text_nama_mapel)
@@ -71,21 +79,18 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
         val btnIzinSakit: ImageButton = findViewById(R.id.btn_izin_sakit)
         val btnAjukanDispen: ImageButton = findViewById(R.id.btn_ajukan_dispen)
 
-        // Set data dari intent
-        jadwalData?.let {
-            currentJadwal = it
-            tvNamaMapel.text = it.mataPelajaran
-            tvKelas.text = it.kelas
-            tvTanggalWaktu.text = "${formatTanggalWaktu(it.jam)}"
-            tvMapelDetail.text = it.mataPelajaran
-            tvKelasDetail.text = it.kelas
+        // Set data from currentJadwal (already assigned above)
+        tvNamaMapel.text = currentJadwal.mataPelajaran
+        tvKelas.text = currentJadwal.kelas
+        tvTanggalWaktu.text = formatTanggalWaktu(currentJadwal.jam)
+        tvMapelDetail.text = currentJadwal.mataPelajaran
+        tvKelasDetail.text = currentJadwal.kelas
 
-            // Fetch real student count
-            if (it.classId != null && it.classId != -1) {
-                fetchClassDetail(it.classId)
-            } else {
-                 findViewById<TextView>(R.id.txt_end_3).text = "-"
-            }
+        // Fetch real student count
+        currentJadwal.classId?.takeIf { it != -1 }?.let { classId ->
+            fetchClassDetail(classId)
+        } ?: run {
+            findViewById<TextView>(R.id.txt_end_3).text = "-"
         }
 
         btnBack.setOnClickListener {
@@ -219,10 +224,10 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
             }
 
             val apiStatus = when(keterangan.lowercase()) {
-                "sakit" -> "sakit"
-                "izin" -> "izin"
-                "izin pulang" -> "izin_pulang"
-                else -> "izin"
+                "sakit" -> "sick"
+                "izin" -> "excused"
+                "izin pulang" -> "leave"
+                else -> "excused"
             }
 
             // Convert to API date
@@ -233,7 +238,8 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
                 type = apiStatus,
-                date = apiDate,
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = catatan.ifEmpty { "Izin tidak mengajar: $keterangan" },
                 scheduleId = currentJadwal.id
             )
@@ -282,10 +288,10 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
             }
 
             val apiStatus = when(keterangan.lowercase()) {
-                "sakit" -> "sakit"
-                "izin" -> "izin"
-                "izin pulang" -> "izin_pulang"
-                else -> "izin"
+                "sakit" -> "sick"
+                "izin" -> "excused"
+                "izin pulang" -> "leave"
+                else -> "excused"
             }
 
             val apiDate = try {
@@ -295,7 +301,8 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
                 type = apiStatus,
-                date = apiDate,
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = catatan.ifEmpty { "Izin Guru: $keterangan" },
                 scheduleId = currentJadwal.id
             )
@@ -348,8 +355,9 @@ class DetailJadwalGuruActivity : AppCompatActivity() {
             } catch (e: Exception) { sdfApi.format(Date()) }
 
             val request = com.example.ritamesa.data.model.AbsenceRequestRequest(
-                type = "izin", // Dispensasi is usually an "Izin"
-                date = apiDate,
+                type = "excused", // Dispensasi is usually an "Izin"
+                startDate = apiDate,
+                endDate = apiDate,
                 reason = "Dispensasi Siswa: $namaSiswa. ${catatan.ifEmpty { "" }}".trim(),
                 scheduleId = currentJadwal.id,
                 studentId = studentId

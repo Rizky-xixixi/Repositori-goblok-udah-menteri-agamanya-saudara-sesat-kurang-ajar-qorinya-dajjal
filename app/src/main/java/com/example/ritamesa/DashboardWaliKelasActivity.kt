@@ -112,8 +112,8 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
 
         txtTanggalSekarang.text = tanggalFormatBesar
         txtTanggalDiJamLayout.text = tanggalFormatBesar
-        txtJamMasuk.text = "07:00:00"
-        txtJamPulang.text = "15:00:00"
+        
+        fetchSettings()
 
         runnable = object : Runnable {
             override fun run() {
@@ -159,8 +159,8 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
         
         apiService.getHomeroomAttendance(fromDate = today, toDate = today).enqueue(object : Callback<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>> {
             override fun onResponse(call: Call<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>>, response: Response<List<com.example.ritamesa.data.model.HomeroomAttendanceItem>>) {
-                if (response.isSuccessful && response.body() != null) {
-                    val data = response.body()!!
+                if (response.isSuccessful) {
+                    val data = response.body() ?: emptyList()
                     riwayatList.clear()
                     data.take(5).forEach { item ->
                         riwayatList.add(
@@ -199,7 +199,27 @@ class DashboardWaliKelasActivity : AppCompatActivity() {
             }
 
             override fun onFailure(call: Call<HomeroomDashboardResponse>, t: Throwable) {
+                Log.e("DashboardWaliKelas", "Error fetching dashboard data: ${t.message}", t)
                 Toast.makeText(this@DashboardWaliKelasActivity, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    private fun fetchSettings() {
+        val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
+        apiService.getSettings().enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.SettingResponse> {
+            override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.SettingResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.SettingResponse>) {
+                if (response.isSuccessful) {
+                    response.body()?.data?.let { settings ->
+                        val start = settings["school_start_time"] ?: "07:00"
+                        val end = settings["school_end_time"] ?: "15:00"
+                        txtJamMasuk.text = if (start.length >= 5) start.substring(0, 5) else start
+                        txtJamPulang.text = if (end.length >= 5) end.substring(0, 5) else end
+                    }
+                }
+            }
+            override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.SettingResponse>, t: Throwable) {
+                Log.e("DashboardWaliKelas", "Failed to fetch settings", t)
             }
         })
     }

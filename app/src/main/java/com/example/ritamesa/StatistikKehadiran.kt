@@ -208,19 +208,15 @@ class StatistikKehadiran : AppCompatActivity() {
         
         val apiService = com.example.ritamesa.data.api.ApiClient.getClient(this).create(com.example.ritamesa.data.api.ApiService::class.java)
 
-        Toast.makeText(this, "Memuat data statistik...", Toast.LENGTH_SHORT).show()
-
         if (role == "teacher") { // Assuming "teacher" is the role string
              apiService.getMonthlyStatistics(month, year).enqueue(object : retrofit2.Callback<com.example.ritamesa.data.model.TeacherStatisticsResponse> {
                 override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherStatisticsResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.TeacherStatisticsResponse>) {
                     if (response.isSuccessful) {
                         response.body()?.let { processTeacherApiData(it) }
-                    } else {
-                         Toast.makeText(this@StatistikKehadiran, "Gagal memuat statistik", Toast.LENGTH_SHORT).show()
                     }
                 }
                 override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.TeacherStatisticsResponse>, t: Throwable) {
-                    Toast.makeText(this@StatistikKehadiran, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("StatistikKehadiran", "Error loading teacher stats", t)
                 }
             })
         } else {
@@ -233,12 +229,10 @@ class StatistikKehadiran : AppCompatActivity() {
                 override fun onResponse(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, response: retrofit2.Response<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>) {
                     if (response.isSuccessful) {
                         response.body()?.let { processWakaApiData(it) }
-                    } else {
-                         Toast.makeText(this@StatistikKehadiran, "Gagal memuat statistik waka", Toast.LENGTH_SHORT).show()
                     }
                 }
                 override fun onFailure(call: retrofit2.Call<com.example.ritamesa.data.model.WakaAttendanceSummaryResponse>, t: Throwable) {
-                    Toast.makeText(this@StatistikKehadiran, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("StatistikKehadiran", "Error loading waka stats", t)
                 }
             })
         }

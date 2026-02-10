@@ -91,7 +91,7 @@ class Dashboard : AppCompatActivity() {
         }
 
         findViewById<ImageButton>(R.id.imageButton87).setOnClickListener {
-            startActivity(Intent(this, RiwayatKehadiranSiswa::class.java))
+            startActivity(Intent(this, RiwayatKehadiranSiswa1::class.java))
         }
 
         findViewById<ImageButton>(R.id.imageView16).setOnClickListener {
@@ -130,14 +130,17 @@ class Dashboard : AppCompatActivity() {
 
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.menu_profile -> {
+                    val intent = Intent(this, ProfileActivity::class.java)
+                    startActivity(intent)
+                    true
+                }
                 R.id.menu_logout -> {
-                    // Tampilkan konfirmasi logout
                     showLogoutConfirmation()
                     true
                 }
                 R.id.menu_cancel -> {
-                    // Batal - tutup menu saja
-                    Toast.makeText(this, "Dibatalkan", Toast.LENGTH_SHORT).show()
+                    // Do nothing, dismiss menu
                     true
                 }
                 else -> false
@@ -183,12 +186,14 @@ class Dashboard : AppCompatActivity() {
                         tvTotalJurusan.text = data.totalJurusan.toString()
                         tvTotalKelas.text = data.totalKelas.toString()
 
-                        tvHadir.text = data.attendance.hadir.toString()
-                        tvIzin.text = data.attendance.izin.toString()
-                        tvSakit.text = data.attendance.sakit.toString()
-                        tvAlpha.text = data.attendance.alpha.toString()
-                        tvTerlambat.text = data.attendance.terlambat.toString()
-                        tvPulang.text = data.attendance.pulang.toString() // Or hide/ignore if 0
+                        // Handle nullable attendance stats
+                        val attendance = data.attendance
+                        tvHadir.text = (attendance?.hadir ?: 0).toString()
+                        tvIzin.text = (attendance?.izin ?: 0).toString()
+                        tvSakit.text = (attendance?.sakit ?: 0).toString()
+                        tvAlpha.text = (attendance?.alpha ?: 0).toString()
+                        tvTerlambat.text = (attendance?.terlambat ?: 0).toString()
+                        tvPulang.text = (attendance?.pulang ?: 0).toString()
 
                         setupChartHariIni()
                     }

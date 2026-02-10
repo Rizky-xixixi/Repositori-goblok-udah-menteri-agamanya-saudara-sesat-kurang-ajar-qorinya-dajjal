@@ -34,16 +34,8 @@ class PersetujuanDispensasi : AppCompatActivity() {
     private lateinit var kelasDropdown: TextView
     private lateinit var apiService: ApiService
 
-    private val kelasList = listOf(
-        "Semua Kelas",
-        "X RPL 1", "X RPL 2", "X RPL 3",
-        "XI RPL 1", "XI RPL 2", "XI RPL 3",
-        "XII RPL 1", "XII RPL 2", "XII RPL 3",
-        "XII TKJ 1", "XII TKJ 2",
-        "XII IPA 1", "XII IPA 2",
-        "XII IPS 1", "XII IPS 2",
-        "XII Mekatronika 1"
-    )
+    private var dataClasses = mutableListOf<com.example.ritamesa.data.model.ClassItem>()
+    private val kelasList = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +55,32 @@ class PersetujuanDispensasi : AppCompatActivity() {
         setupSearch()
         setupKelasDropdown()
         
+        loadInitialData()
+    }
+
+    private fun loadInitialData() {
+        fetchClasses()
         fetchAbsenceRequests()
+    }
+
+    private fun fetchClasses() {
+        apiService.getClasses().enqueue(object : Callback<com.example.ritamesa.data.model.ClassListResponse> {
+            override fun onResponse(call: Call<com.example.ritamesa.data.model.ClassListResponse>, response: Response<com.example.ritamesa.data.model.ClassListResponse>) {
+                if (response.isSuccessful) {
+                    dataClasses.clear()
+                    dataClasses.addAll(response.body()?.data ?: emptyList())
+                    
+                    kelasList.clear()
+                    kelasList.add("Semua Kelas")
+                    dataClasses.forEach { 
+                        kelasList.add("${it.grade} ${it.label}")
+                    }
+                }
+            }
+            override fun onFailure(call: Call<com.example.ritamesa.data.model.ClassListResponse>, t: Throwable) {
+                Log.e("PersetujuanDispensasi", "Failed to fetch classes", t)
+            }
+        })
     }
     
     private fun fetchAbsenceRequests() {
@@ -106,7 +123,8 @@ class PersetujuanDispensasi : AppCompatActivity() {
             }
             override fun onFailure(call: Call<AbsenceRequestResponse>, t: Throwable) {
                 pd.dismiss()
-                Toast.makeText(this@PersetujuanDispensasi, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e("PersetujuanDispensasi", "Absence fetch error", t)
+                Toast.makeText(this@PersetujuanDispensasi, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
@@ -254,8 +272,8 @@ class PersetujuanDispensasi : AppCompatActivity() {
 
             dialog.show()
         } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e("PersetujuanDispensasi", "Dropdown dialog error", e)
+            Toast.makeText(this, "Gagal membuka menu: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -313,7 +331,8 @@ class PersetujuanDispensasi : AppCompatActivity() {
             }
             override fun onFailure(call: Call<GeneralResponse>, t: Throwable) {
                 pd.dismiss()
-                Toast.makeText(this@PersetujuanDispensasi, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e("PersetujuanDispensasi", "Process error", t)
+                Toast.makeText(this@PersetujuanDispensasi, "Error koneksi: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }

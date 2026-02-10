@@ -197,8 +197,9 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
         apiService.getSchoolAttendanceHistory(date = dateStr, status = apiStatus, role = "Siswa")
             .enqueue(object : Callback<SchoolAttendanceResponse> {
                 override fun onResponse(call: Call<SchoolAttendanceResponse>, response: Response<SchoolAttendanceResponse>) {
-                    if (response.isSuccessful && response.body() != null) {
-                        val items = response.body()!!.data.map { apiItem ->
+                    if (response.isSuccessful) {
+                        val responseData = response.body()?.data ?: emptyList()
+                        val items = responseData.map { apiItem ->
                             Attendance1(
                                 date = apiItem.date,
                                 name = apiItem.student?.user?.name ?: "Siswa",
@@ -273,11 +274,34 @@ class RiwayatKehadiranSiswa1 : AppCompatActivity() {
     }
 
     private fun handleEkspor() {
-        Toast.makeText(this, "Ekspor data riwayat kehadiran siswa...", Toast.LENGTH_SHORT).show()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateStr = dateFormat.format(currentDateFilter.time)
+        
+        // Use the absolute URL via getClient instance or hardcode the export path
+        val baseUrl = com.example.ritamesa.data.api.ApiClient.BASE_URL
+        val exportUrl = "${baseUrl}attendance/export-pdf?from=$dateStr&to=$dateStr"
+        
+        Toast.makeText(this, "Mengekspor data ke PDF...", Toast.LENGTH_SHORT).show()
+        
+        val request = android.app.DownloadManager.Request(android.net.Uri.parse(exportUrl))
+        request.setTitle("Laporan Kehadiran $dateStr")
+        request.setDescription("Sedang mengunduh laporan...")
+        request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "Laporan_Kehadiran_$dateStr.pdf")
+        
+        // Add auth token if available in SharedPreferences
+        val prefs = getSharedPreferences("ritamesa_prefs", android.content.Context.MODE_PRIVATE)
+        val token = prefs.getString("auth_token", null)
+        if (token != null) {
+            request.addRequestHeader("Authorization", "Bearer $token")
+        }
+        
+        val downloadManager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        downloadManager.enqueue(request)
     }
 
     private fun handleImpor() {
-        Toast.makeText(this, "Impor data riwayat kehadiran siswa...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Fitur Impor (Excel) dilakukan melalui Dashboard Web Admin", Toast.LENGTH_LONG).show()
     }
 
     inner class AttendanceAdapter1(private var list: List<Attendance1>) : RecyclerView.Adapter<AttendanceAdapter1.ViewHolder>() {

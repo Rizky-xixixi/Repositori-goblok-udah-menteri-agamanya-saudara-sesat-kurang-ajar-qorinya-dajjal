@@ -4,17 +4,21 @@ import com.google.gson.annotations.SerializedName
 
 // ===== AUTH MODELS =====
 data class LoginRequest(
-    val email: String,
+    val login: String,
     val password: String,
     @SerializedName("device_name") val deviceName: String = "Android"
 )
 
 data class LoginResponse(
-    val message: String,
-    val access_token: String,
-    val token_type: String,
+    val message: String? = null,
+    val token: String? = null,
+    @SerializedName("access_token") val accessToken: String? = null,
+    val token_type: String? = null,
     val user: User
-)
+) {
+    // Compatibility getter - API may return either "token" or "access_token"
+    val access_token: String get() = token ?: accessToken ?: ""
+}
 
 data class User(
     val id: Int,
@@ -47,33 +51,33 @@ data class UserProfile(
 )
 
 data class DashboardGuruResponse(
-     val date: String,
-     val day_name: String,
-     @SerializedName("schedule_today") val schedule: List<JadwalItem>,
-     @SerializedName("attendance_summary") val attendance: AttendanceSummary,
-     val teacher: TeacherInfo
+     val date: String? = null,
+     val day_name: String? = null,
+     @SerializedName("schedule_today") val schedule: List<JadwalItem> = emptyList(),
+     @SerializedName("attendance_summary") val attendance: AttendanceSummary? = null,
+     val teacher: TeacherInfo? = null
 )
 
 data class TeacherInfo(
-    val name: String,
-    val nip: String?,
-    val code: String?,
-    @SerializedName("photo_url") val photoUrl: String?
+    val name: String? = null,
+    val nip: String? = null,
+    val code: String? = null,
+    @SerializedName("photo_url") val photoUrl: String? = null
 )
 
 data class DashboardSiswaResponse(
-     val date: String,
-     val day_name: String,
-     @SerializedName("schedule_today") val schedule: List<JadwalItem>,
-     val student: StudentInfo
+     val date: String? = null,
+     val day_name: String? = null,
+     @SerializedName("schedule_today") val schedule: List<JadwalItem> = emptyList(),
+     val student: StudentInfo? = null
 )
 
 data class StudentInfo(
-    val name: String,
-    @SerializedName("class_name") val className: String?,
-    val nis: String?,
-    @SerializedName("photo_url") val photoUrl: String?,
-    @SerializedName("is_class_officer") val isClassOfficer: Boolean
+    val name: String? = null,
+    @SerializedName("class_name") val className: String? = null,
+    val nis: String? = null,
+    @SerializedName("photo_url") val photoUrl: String? = null,
+    @SerializedName("is_class_officer") val isClassOfficer: Boolean = false
 )
 
 data class JadwalItem(
@@ -141,9 +145,10 @@ data class Links(
 data class AttendanceSummary(
     val present: Int,
     @SerializedName("excused") val permission: Int,
-    @SerializedName("izin") val izin: Int = 0, // Backend splits excused and izin? TODO check
+    @SerializedName("izin") val izin: Int = 0,
     val sick: Int,
-    @SerializedName("absent") val alpha: Int
+    @SerializedName("absent") val alpha: Int,
+    val late: Int = 0
 )
 
 data class ScanRequest(
@@ -163,23 +168,25 @@ data class Attendance(
     val status: String,
     @SerializedName("check_in_time") val checkInTime: String?,
     val schedule: JadwalItem?,
-    val teacher: TeacherProfile?
+    val teacher: TeacherProfile?,
+    val student: StudentProfile? = null,
+    @SerializedName("student_id") val studentId: Int? = null
 )
 
 data class TeachingAttendanceItem(
     val id: Int,
-    val date: String,
-    val status: String,
-    val schedule: ScheduleInfo?
+    val date: String? = null,
+    val status: String? = null,
+    val schedule: ScheduleInfo? = null
 )
 
 data class ScheduleInfo(
     val id: Int,
-    @SerializedName("class") val classInfo: ClassInfo?,
-    @SerializedName("subject") val subjectInfo: SubjectInfo?,
-    @SerializedName("start_time") val startTime: String,
-    @SerializedName("end_time") val endTime: String,
-    val teacher: TeacherProfile?
+    @SerializedName("class") val classInfo: ClassInfo? = null,
+    @SerializedName("subject") val subjectInfo: SubjectInfo? = null,
+    @SerializedName("start_time") val startTime: String? = null,
+    @SerializedName("end_time") val endTime: String? = null,
+    val teacher: TeacherProfile? = null
 )
 
 data class TeacherProfile(
@@ -188,30 +195,32 @@ data class TeacherProfile(
     val user: User?
 )
 
-data class ClassInfo(val name: String)
-data class SubjectInfo(val name: String)
+data class ClassInfo(val name: String? = null)
+data class SubjectInfo(val name: String? = null)
 
 data class StudentAttendanceItem(
     val id: Int,
-    val date: String,
-    val status: String,
-    @SerializedName("check_in_time") val checkInTime: String?,
-    val schedule: StudentScheduleInfo?
+    val date: String? = null,
+    val status: String? = null,
+    @SerializedName("check_in_time") val checkInTime: String? = null,
+    val schedule: StudentScheduleInfo? = null
 )
 
 data class StudentScheduleInfo(
     val id: Int,
-    @SerializedName("subject") val subjectInfo: SubjectInfo?,
-    @SerializedName("teacher") val teacherInfo: TeacherProfileNested?,
-    @SerializedName("start_time") val startTime: String,
-    @SerializedName("end_time") val endTime: String
+    @SerializedName("subject") val subjectInfo: SubjectInfo? = null,
+    @SerializedName("teacher") val teacherInfo: TeacherProfileNested? = null,
+    @SerializedName("start_time") val startTime: String? = null,
+    @SerializedName("end_time") val endTime: String? = null
 )
 
 data class TeacherProfileNested(
-    val user: UserNested
+    val id: Int? = null,
+    val nip: String? = null,
+    val user: UserNested? = null
 )
 
-data class UserNested(val name: String)
+data class UserNested(val name: String? = null)
 
 data class StudentFollowUpResponse(
     val data: List<StudentFollowUpItem>
@@ -303,11 +312,16 @@ data class StudentScheduleResponse(
 data class StudentScheduleItem(
     val id: Int,
     @SerializedName("subject_name") val subjectName: String?,
+    @SerializedName("subject") val subject: SubjectInfo? = null,
     @SerializedName("start_time") val startTime: String,
     @SerializedName("end_time") val endTime: String,
     val room: String?,
     val teacher: TeacherProfile?
-)
+) {
+    // Helper to get subject name from either field
+    val displaySubjectName: String
+        get() = subjectName ?: subject?.name ?: "Mata Pelajaran"
+}
 
 data class ClassItem(
     val id: Int,
@@ -456,11 +470,12 @@ data class CreateClassRequest(
 )
 
 data class AdminDashboardResponse(
-    @SerializedName("students_count") val totalSiswa: Int,
-    @SerializedName("teachers_count") val totalGuru: Int,
-    @SerializedName("classes_count") val totalKelas: Int,
-    @SerializedName("majors_count") val totalJurusan: Int,
-    @SerializedName("attendance_today") val attendance: AdminAttendanceStats
+    @SerializedName("students_count") val totalSiswa: Int = 0,
+    @SerializedName("teachers_count") val totalGuru: Int = 0,
+    @SerializedName("classes_count") val totalKelas: Int = 0,
+    @SerializedName("majors_count") val totalJurusan: Int = 0,
+    @SerializedName("rooms_count") val totalRuangan: Int = 0,
+    @SerializedName("attendance_today") val attendance: AdminAttendanceStats? = null
 )
 
 data class AdminAttendanceStats(
@@ -542,8 +557,10 @@ data class SchoolAttendanceItem(
 )
 
 data class AbsenceRequestRequest(
-    @SerializedName("type") val type: String, // "sakit", "izin", "izin_pulang"
-    @SerializedName("date") val date: String,
+    @SerializedName("type") val type: String, // "sick", "excused", "permission" based on API spec
+    @SerializedName("date") val date: String? = null,
+    @SerializedName("start_date") val startDate: String? = null,
+    @SerializedName("end_date") val endDate: String? = null,
     @SerializedName("reason") val reason: String,
     @SerializedName("schedule_id") val scheduleId: Int? = null,
     @SerializedName("student_id") val studentId: Int? = null // For teacher submitting on behalf of student (Dispensasi)
@@ -723,4 +740,20 @@ data class WaMedia(
     @SerializedName("mediaBase64") val mediaBase64: String,
     val filename: String,
     val caption: String? = null
+)
+
+@Data
+data class SettingResponse(
+    val status: String,
+    @SerializedName("data") val data: Map<String, String>
+)
+
+data class SubjectItem(
+    @SerializedName("id") val id: Int,
+    @SerializedName("code") val code: String,
+    @SerializedName("name") val name: String
+)
+
+data class SubjectListResponse(
+    @SerializedName("data") val data: List<SubjectItem>
 )

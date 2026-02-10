@@ -106,6 +106,9 @@ interface ApiService {
     @POST("classes")
     fun createClass(@Body request: ClassCreate): Call<GeneralResponse>
 
+    @GET("subjects")
+    fun getSubjects(@Query("per_page") perPage: Int? = -1): Call<SubjectListResponse>
+
     // ===== WHATSAPP ENDPOINTS =====
     @POST("wa/send-text")
     fun sendWhatsAppText(@Body request: WaText): Call<GeneralResponse>
@@ -160,6 +163,12 @@ interface ApiService {
     fun getStudentSchedules(
         @Query("date") date: String? = null
     ): Call<StudentScheduleResponse>
+
+    // Alternative: If backend returns list directly
+    @GET("me/schedules")
+    fun getStudentSchedulesList(
+        @Query("date") date: String? = null
+    ): Call<List<StudentScheduleItem>>
 
     @GET("me/class/attendance")
     fun getClassAttendance(
@@ -281,4 +290,7 @@ interface ApiService {
         @Query("to") to: String? = null,
         @Query("type") type: String? = "student"
     ): Call<WakaAttendanceSummaryResponse>
+
+    @GET("settings")
+    fun getSettings(): Call<SettingResponse>
 }
