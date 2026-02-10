@@ -188,6 +188,18 @@ interface ApiService {
     @DELETE("majors/{id}")
     fun deleteMajor(@Path("id") id: Int): Call<GeneralResponse>
 
+    @POST("majors")
+    fun createMajor(@Body request: CreateMajorRequest): Call<GeneralResponse>
+
+    @retrofit2.http.PUT("majors/{id}")
+    fun updateMajor(
+        @retrofit2.http.Path("id") id: Int,
+        @Body request: CreateMajorRequest
+    ): Call<GeneralResponse>
+
+    @retrofit2.http.DELETE("majors/{id}")
+    fun deleteMajor(@retrofit2.http.Path("id") id: Int): Call<GeneralResponse>
+
     // ===== STUDENT CRUD =====
     @GET("students")
     fun getStudents(

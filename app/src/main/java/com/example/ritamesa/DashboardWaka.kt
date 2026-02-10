@@ -437,3 +437,4 @@ class DashboardWaka : AppCompatActivity() {
         chart.animateY(1000)
     }
 }
+}
